@@ -1,9 +1,7 @@
 import SwiftUI
 import PhotosUI
 
-// MARK: - Mô hình dữ liệu
-
-struct RewardOption: Identifiable, Codable {
+struct RewardOption: Identifiable, Codable, Hashable {
     let id: UUID
     let label: String
     let amount: Int
@@ -100,35 +98,29 @@ struct AccountListing: Identifiable, Codable {
     let createdAt: Date
 }
 
-// MARK: - Giao diện chính
-
 struct ContentView: View {
     private static let accountsKey = "notebook_shop_accounts_v1"
     private static let currentUserKey = "notebook_shop_current_user_v1"
     private static let listingsKey = "notebook_shop_listings_v1"
 
-    @State private var accounts: [UserAccount] = ContentView.loadAccounts()
-    @State private var activeUsername: String = UserDefaults.standard.string(forKey: ContentView.currentUserKey) ?? ""
-    @State private var listings: [AccountListing] = ContentView.loadListings()
+    @State private var accounts: [UserAccount] = []
+    @State private var activeUsername: String = ""
+    @State private var listings: [AccountListing] = []
 
-    // Đăng nhập / Đăng ký
     @State private var isRegisterTab = false
     @State private var authUsername = ""
     @State private var authPassword = ""
     @State private var authConfirmPassword = ""
     @State private var authErrorMessage: String?
 
-    // Điều hướng trong sổ
     @State private var selectedSection = 0
     @State private var showNotice = true
 
-    // Vòng quay
     @State private var selectedPlatform: GamePlatform = .lienQuan
     @State private var wheelAngle: Double = 0
     @State private var isSpinning = false
     @State private var lastSpinResult = "Chọn vòng quay và kiểm tra giá lượt trước khi quay"
 
-    // Đăng bán acc
     @State private var newPlatform: GamePlatform = .lienQuan
     @State private var newTitle = ""
     @State private var newPriceText = ""
@@ -137,7 +129,6 @@ struct ContentView: View {
     @State private var newImageData: Data?
     @State private var postMessage: String?
 
-    // Nạp tiền
     private let topUpAmounts = [10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
     @State private var topUpNotice: String?
 
@@ -180,10 +171,13 @@ struct ContentView: View {
                     }
                 }
             }
+            .onAppear {
+                accounts = Self.loadAccounts()
+                activeUsername = UserDefaults.standard.string(forKey: Self.currentUserKey) ?? ""
+                listings = Self.loadListings()
+            }
         }
     }
-
-    // MARK: - Nền quyển sổ thân thiện
 
     private var notebookBackground: some View {
         ZStack(alignment: .leading) {
@@ -215,8 +209,6 @@ struct ContentView: View {
                 .padding(.leading, 32)
         }
     }
-
-    // MARK: - Màn hình Đăng nhập / Tạo tài khoản
 
     private var authNotebookView: some View {
         ScrollView {
@@ -341,8 +333,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Nội dung chính bên trong quyển sổ
-
     private func mainNotebookContent(user: UserAccount) -> some View {
         ScrollView {
             VStack(spacing: 16) {
@@ -442,8 +432,6 @@ struct ContentView: View {
         .padding(.vertical, 8)
         .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
     }
-
-    // MARK: - Màn hình chính: Danh sách acc đăng bán có ảnh
 
     private var homeListingsView: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -566,8 +554,6 @@ struct ContentView: View {
         listings.removeAll { $0.id == item.id }
         Self.saveListings(listings)
     }
-
-    // MARK: - Vòng quay liên nền tảng có giá riêng từng vòng
 
     private func wheelSpinView(user: UserAccount) -> some View {
         VStack(spacing: 16) {
@@ -743,8 +729,6 @@ struct ContentView: View {
         }
     }
 
-    // MARK: - Đăng tin & ảnh bán acc lên màn hình chính
-
     private var createListingView: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Đăng tin bán acc lên màn hình chính")
@@ -793,14 +777,10 @@ struct ContentView: View {
                 .background(Color.brown.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
                 .foregroundStyle(Color(red: 0.45, green: 0.26, blue: 0.10))
             }
-            .onChange(of: selectedListingPhoto) { newItem in
-                guard let newItem else { return }
-                Task {
-                    if let data = try? await newItem.loadTransferable(type: Data.self) {
-                        await MainActor.run {
-                            newImageData = data
-                        }
-                    }
+            .task(id: selectedListingPhoto) {
+                guard let item = selectedListingPhoto else { return }
+                if let data = try? await item.loadTransferable(type: Data.self) {
+                    newImageData = data
                 }
             }
 
@@ -873,8 +853,6 @@ struct ContentView: View {
         selectedSection = 0
     }
 
-    // MARK: - Nạp tiền cộng vào tài khoản đang đăng nhập
-
     private var topUpView: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Nạp tiền vào tài khoản")
@@ -919,8 +897,6 @@ struct ContentView: View {
         Self.saveAccounts(accounts)
         topUpNotice = "Đã cộng \(formatVND(amount)) vào tài khoản \(accounts[idx].username)."
     }
-
-    // MARK: - Lưu trữ cục bộ & định dạng
 
     private func formatVND(_ value: Int) -> String {
         let formatter = NumberFormatter()
