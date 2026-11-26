@@ -3,6 +3,18 @@ import PhotosUI
 
 // MARK: - Mô hình dữ liệu
 
+struct RewardOption: Identifiable, Codable {
+    let id: UUID
+    let label: String
+    let amount: Int
+
+    init(id: UUID = UUID(), label: String, amount: Int) {
+        self.id = id
+        self.label = label
+        self.amount = amount
+    }
+}
+
 enum GamePlatform: String, CaseIterable, Identifiable, Codable {
     case lienQuan = "Liên Quân"
     case freeFire = "Free Fire"
@@ -26,34 +38,34 @@ enum GamePlatform: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    var rewards: [(String, Int)] {
+    var rewards: [RewardOption] {
         switch self {
         case .lienQuan:
             return [
-                ("150 Quân Huy", 150),
-                ("300 Quân Huy", 300),
-                ("650 Quân Huy", 650),
-                ("1.200 Quân Huy", 1200),
-                ("60 Quân Huy", 60),
-                ("2.500 Quân Huy", 2500)
+                RewardOption(label: "150 Quân Huy", amount: 150),
+                RewardOption(label: "300 Quân Huy", amount: 300),
+                RewardOption(label: "650 Quân Huy", amount: 650),
+                RewardOption(label: "1.200 Quân Huy", amount: 1200),
+                RewardOption(label: "60 Quân Huy", amount: 60),
+                RewardOption(label: "2.500 Quân Huy", amount: 2500)
             ]
         case .freeFire:
             return [
-                ("140 Kim Cương", 140),
-                ("290 Kim Cương", 290),
-                ("580 Kim Cương", 580),
-                ("1.150 Kim Cương", 1150),
-                ("70 Kim Cương", 70),
-                ("2.200 Kim Cương", 2200)
+                RewardOption(label: "140 Kim Cương", amount: 140),
+                RewardOption(label: "290 Kim Cương", amount: 290),
+                RewardOption(label: "580 Kim Cương", amount: 580),
+                RewardOption(label: "1.150 Kim Cương", amount: 1150),
+                RewardOption(label: "70 Kim Cương", amount: 70),
+                RewardOption(label: "2.200 Kim Cương", amount: 2200)
             ]
         case .fcMobile:
             return [
-                ("200 FV", 200),
-                ("450 FV", 450),
-                ("950 FV", 950),
-                ("1.800 FV", 1800),
-                ("100 FV", 100),
-                ("3.500 FV", 3500)
+                RewardOption(label: "200 FV", amount: 200),
+                RewardOption(label: "450 FV", amount: 450),
+                RewardOption(label: "950 FV", amount: 950),
+                RewardOption(label: "1.800 FV", amount: 1800),
+                RewardOption(label: "100 FV", amount: 100),
+                RewardOption(label: "3.500 FV", amount: 3500)
             ]
         }
     }
@@ -107,7 +119,7 @@ struct ContentView: View {
     @State private var authErrorMessage: String?
 
     // Điều hướng trong sổ
-    @State private var selectedSection = 0 // 0: Màn chính (Shop Acc), 1: Vòng quay, 2: Đăng bán acc, 3: Nạp tiền
+    @State private var selectedSection = 0
     @State private var showNotice = true
 
     // Vòng quay
@@ -624,7 +636,6 @@ struct ContentView: View {
             .padding(14)
             .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
 
-            // Vòng quay trực quan
             ZStack {
                 Circle()
                     .fill(
@@ -690,12 +701,11 @@ struct ContentView: View {
         let currentBalance = accounts[idx].balance
 
         guard currentBalance >= cost else {
-            let thiếu = cost - currentBalance
-            lastSpinResult = "Số dư chưa đủ \(formatVND(cost)) (còn thiếu \(formatVND(thiếu))). Hãy qua mục Nạp tiền."
+            let missingAmount = cost - currentBalance
+            lastSpinResult = "Số dư chưa đủ \(formatVND(cost)) (còn thiếu \(formatVND(missingAmount))). Hãy qua mục Nạp tiền."
             return
         }
 
-        // Trừ tiền đã nạp trước đó ngay khi bắt đầu lượt quay
         accounts[idx].balance -= cost
         Self.saveAccounts(accounts)
 
@@ -705,7 +715,8 @@ struct ContentView: View {
         let rewardPool = selectedPlatform.rewards
         let pickedIndex = Int.random(in: 0..<rewardPool.count)
         let picked = rewardPool[pickedIndex]
-        let extraDegrees = Double(pickedIndex) * (360.0 / Double(rewardPool.count)) + 1080.0
+        let sliceAngle = 360.0 / Double(rewardPool.count)
+        let extraDegrees = Double(pickedIndex) * sliceAngle + 1080.0
 
         withAnimation(.easeOut(duration: 1.6)) {
             wheelAngle += extraDegrees
@@ -719,15 +730,15 @@ struct ContentView: View {
 
             switch selectedPlatform {
             case .lienQuan:
-                accounts[userIdx].quanHuy += picked.1
+                accounts[userIdx].quanHuy += picked.amount
             case .freeFire:
-                accounts[userIdx].kimCuong += picked.1
+                accounts[userIdx].kimCuong += picked.amount
             case .fcMobile:
-                accounts[userIdx].fv += picked.1
+                accounts[userIdx].fv += picked.amount
             }
 
             Self.saveAccounts(accounts)
-            lastSpinResult = "Trúng \(picked.0)!"
+            lastSpinResult = "Trúng \(picked.label)!"
             isSpinning = false
         }
     }
