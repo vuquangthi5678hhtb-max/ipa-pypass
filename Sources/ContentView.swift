@@ -1,7 +1,7 @@
 import SwiftUI
 import PhotosUI
 
-struct RewardOption: Identifiable, Codable, Hashable {
+struct RewardOption: Identifiable, Codable {
     let id: UUID
     let label: String
     let amount: Int
@@ -78,7 +78,7 @@ enum LoginMethod: String, CaseIterable, Identifiable, Codable {
 }
 
 struct UserAccount: Codable, Identifiable {
-    var id: String { username.lowercased() }
+    let id: UUID
     let username: String
     let password: String
     var balance: Int
@@ -99,9 +99,9 @@ struct AccountListing: Identifiable, Codable {
 }
 
 struct ContentView: View {
-    private static let accountsKey = "notebook_shop_accounts_v1"
-    private static let currentUserKey = "notebook_shop_current_user_v1"
-    private static let listingsKey = "notebook_shop_listings_v1"
+    private let accountsKey = "notebook_shop_accounts_v2"
+    private let currentUserKey = "notebook_shop_current_user_v2"
+    private let listingsKey = "notebook_shop_listings_v2"
 
     @State private var accounts: [UserAccount] = []
     @State private var activeUsername: String = ""
@@ -145,7 +145,6 @@ struct ContentView: View {
         NavigationStack {
             ZStack {
                 notebookBackground
-                    .ignoresSafeArea()
 
                 if let user = currentUser {
                     mainNotebookContent(user: user)
@@ -156,25 +155,23 @@ struct ContentView: View {
             .navigationTitle(currentUser == nil ? "Sổ Acc & Vòng Quay" : "Sổ Shop • \(currentUser!.username)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                if currentUser != nil {
-                    ToolbarItem(placement: .topBarTrailing) {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if currentUser != nil {
                         Button("Đăng xuất") {
                             activeUsername = ""
-                            UserDefaults.standard.set("", forKey: Self.currentUserKey)
+                            UserDefaults.standard.set("", forKey: currentUserKey)
                             authUsername = ""
                             authPassword = ""
                             authConfirmPassword = ""
                             authErrorMessage = nil
                         }
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.brown)
+                        .foregroundColor(.brown)
                     }
                 }
             }
             .onAppear {
-                accounts = Self.loadAccounts()
-                activeUsername = UserDefaults.standard.string(forKey: Self.currentUserKey) ?? ""
-                listings = Self.loadListings()
+                loadInitialData()
             }
         }
     }
@@ -182,31 +179,25 @@ struct ContentView: View {
     private var notebookBackground: some View {
         ZStack(alignment: .leading) {
             LinearGradient(
-                colors: [
+                gradient: Gradient(colors: [
                     Color(red: 0.99, green: 0.97, blue: 0.92),
                     Color(red: 0.96, green: 0.93, blue: 0.86)
-                ],
+                ]),
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
+            .ignoresSafeArea()
 
             Rectangle()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            Color(red: 0.72, green: 0.56, blue: 0.38),
-                            Color(red: 0.84, green: 0.69, blue: 0.50)
-                        ],
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                )
+                .fill(Color(red: 0.76, green: 0.60, blue: 0.42))
                 .frame(width: 14)
+                .ignoresSafeArea()
 
             Rectangle()
                 .fill(Color.red.opacity(0.22))
                 .frame(width: 1.5)
                 .padding(.leading, 32)
+                .ignoresSafeArea()
         }
     }
 
@@ -216,15 +207,15 @@ struct ContentView: View {
                 VStack(spacing: 8) {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 40))
-                        .foregroundStyle(Color(red: 0.55, green: 0.35, blue: 0.16))
+                        .foregroundColor(Color(red: 0.55, green: 0.35, blue: 0.16))
 
                     Text("Sổ Quản Lý Acc & Vòng Quay")
                         .font(.title2.bold())
-                        .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                        .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
 
                     Text(isRegisterTab ? "Tạo tài khoản mới để lưu số dư & tin đăng" : "Đăng nhập bằng tài khoản đã tạo")
                         .font(.subheadline)
-                        .foregroundStyle(Color(red: 0.45, green: 0.36, blue: 0.26))
+                        .foregroundColor(Color(red: 0.45, green: 0.36, blue: 0.26))
                 }
                 .padding(.top, 12)
 
@@ -234,50 +225,65 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(4)
-                .background(Color.white.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
+                .background(Color.white.opacity(0.85))
+                .cornerRadius(12)
 
                 VStack(spacing: 14) {
                     TextField("Tên tài khoản", text: $authUsername)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
+                        .autocapitalization(.none)
+                        .disableAutocorrection(true)
                         .padding(14)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+                        )
 
                     SecureField("Mật khẩu", text: $authPassword)
                         .padding(14)
-                        .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+                        .background(Color.white)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+                        )
 
                     if isRegisterTab {
                         SecureField("Nhập lại mật khẩu", text: $authConfirmPassword)
                             .padding(14)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+                            )
                     }
 
-                    if let authErrorMessage {
-                        Text(authErrorMessage)
+                    if let err = authErrorMessage {
+                        Text(err)
                             .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.red)
+                            .foregroundColor(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Button {
-                        handleAuthSubmit()
-                    } label: {
+                    Button(action: handleAuthSubmit) {
                         Text(isRegisterTab ? "Tạo tài khoản & Vào sổ" : "Đăng nhập")
                             .font(.headline)
-                            .foregroundStyle(.white)
+                            .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(Color(red: 0.58, green: 0.36, blue: 0.16), in: RoundedRectangle(cornerRadius: 14))
+                            .background(Color(red: 0.58, green: 0.36, blue: 0.16))
+                            .cornerRadius(14)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(16)
-                .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 18))
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.brown.opacity(0.25), lineWidth: 1.2))
+                .background(Color.white.opacity(0.88))
+                .cornerRadius(18)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 18)
+                        .stroke(Color.brown.opacity(0.25), lineWidth: 1.2)
+                )
             }
             .padding(.leading, 26)
             .padding(.trailing, 16)
@@ -289,25 +295,27 @@ struct ContentView: View {
         let cleanUser = authUsername.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanPass = authPassword
 
-        guard cleanUser.count >= 3 else {
+        if cleanUser.count < 3 {
             authErrorMessage = "Tên tài khoản cần ít nhất 3 ký tự."
             return
         }
-        guard cleanPass.count >= 4 else {
+        if cleanPass.count < 4 {
             authErrorMessage = "Mật khẩu cần ít nhất 4 ký tự."
             return
         }
 
         if isRegisterTab {
-            guard cleanPass == authConfirmPassword else {
+            if cleanPass != authConfirmPassword {
                 authErrorMessage = "Mật khẩu nhập lại chưa khớp."
                 return
             }
-            if accounts.contains(where: { $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame }) {
+            let exists = accounts.contains { $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame }
+            if exists {
                 authErrorMessage = "Tên tài khoản này đã tồn tại."
                 return
             }
             let created = UserAccount(
+                id: UUID(),
                 username: cleanUser,
                 password: cleanPass,
                 balance: 0,
@@ -316,9 +324,9 @@ struct ContentView: View {
                 fv: 0
             )
             accounts.append(created)
-            Self.saveAccounts(accounts)
+            saveAccounts()
             activeUsername = created.username
-            UserDefaults.standard.set(created.username, forKey: Self.currentUserKey)
+            UserDefaults.standard.set(created.username, forKey: currentUserKey)
             authErrorMessage = nil
         } else {
             guard let matched = accounts.first(where: {
@@ -328,7 +336,7 @@ struct ContentView: View {
                 return
             }
             activeUsername = matched.username
-            UserDefaults.standard.set(matched.username, forKey: Self.currentUserKey)
+            UserDefaults.standard.set(matched.username, forKey: currentUserKey)
             authErrorMessage = nil
         }
     }
@@ -339,30 +347,32 @@ struct ContentView: View {
                 if showNotice {
                     HStack(spacing: 10) {
                         Image(systemName: "bookmark.fill")
-                            .foregroundStyle(Color(red: 0.65, green: 0.35, blue: 0.12))
+                            .foregroundColor(Color(red: 0.65, green: 0.35, blue: 0.12))
 
                         Text("Chào \(user.username) • Số dư hiện tại: \(formatVND(user.balance))")
                             .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                            .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
 
                         Spacer()
 
-                        Button {
-                            withAnimation(.easeOut(duration: 0.2)) {
-                                showNotice = false
-                            }
-                        } label: {
+                        Button(action: {
+                            showNotice = false
+                        }) {
                             Image(systemName: "xmark")
                                 .font(.footnote.bold())
-                                .foregroundStyle(.brown)
+                                .foregroundColor(.brown)
                                 .frame(width: 28, height: 28)
-                                .background(Color.brown.opacity(0.12), in: Circle())
+                                .background(Color.brown.opacity(0.12))
+                                .clipShape(Circle())
                         }
-                        .buttonStyle(.plain)
                     }
                     .padding(12)
-                    .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+                    .background(Color.white.opacity(0.92))
+                    .cornerRadius(14)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 14)
+                            .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+                    )
                 }
 
                 walletSummaryCard(user: user)
@@ -375,16 +385,16 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(4)
-                .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 12))
+                .background(Color.white.opacity(0.88))
+                .cornerRadius(12)
 
-                switch selectedSection {
-                case 0:
+                if selectedSection == 0 {
                     homeListingsView
-                case 1:
+                } else if selectedSection == 1 {
                     wheelSpinView(user: user)
-                case 2:
+                } else if selectedSection == 2 {
                     createListingView
-                default:
+                } else {
                     topUpView
                 }
             }
@@ -399,38 +409,43 @@ struct ContentView: View {
             HStack {
                 Text("Số dư tài khoản")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(.secondary)
+                    .foregroundColor(.secondary)
                 Spacer()
                 Text(formatVND(user.balance))
-                    .font(.headline.monospacedDigit())
-                    .foregroundStyle(Color(red: 0.12, green: 0.48, blue: 0.24))
+                    .font(.headline)
+                    .foregroundColor(Color(red: 0.12, green: 0.48, blue: 0.24))
             }
 
             Divider()
 
             HStack(spacing: 8) {
                 resourcePill(label: "Quân Huy", value: "\(user.quanHuy)", tint: .blue)
-                resourcePill(label: "Kim Cương", value: "\(user.kimCuong)", tint: .cyan)
+                resourcePill(label: "Kim Cương", value: "\(user.kimCuong)", tint: .teal)
                 resourcePill(label: "FV", value: "\(user.fv)", tint: .orange)
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+        .background(Color.white.opacity(0.92))
+        .cornerRadius(16)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+        )
     }
 
     private func resourcePill(label: String, value: String, tint: Color) -> some View {
         VStack(spacing: 2) {
             Text(value)
-                .font(.subheadline.bold().monospacedDigit())
-                .foregroundStyle(tint)
+                .font(.subheadline.bold())
+                .foregroundColor(tint)
             Text(label)
                 .font(.caption2)
-                .foregroundStyle(.secondary)
+                .foregroundColor(.secondary)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-        .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
+        .background(tint.opacity(0.10))
+        .cornerRadius(10)
     }
 
     private var homeListingsView: some View {
@@ -438,30 +453,31 @@ struct ContentView: View {
             HStack {
                 Text("Acc đang rao bán (\(listings.count))")
                     .font(.headline)
-                    .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                    .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
                 Spacer()
                 Button("+ Đăng bán") {
                     selectedSection = 2
                 }
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color(red: 0.58, green: 0.36, blue: 0.16))
+                .foregroundColor(Color(red: 0.58, green: 0.36, blue: 0.16))
             }
 
             if listings.isEmpty {
                 VStack(spacing: 10) {
                     Image(systemName: "photo.on.rectangle")
                         .font(.largeTitle)
-                        .foregroundStyle(.brown.opacity(0.6))
+                        .foregroundColor(.brown.opacity(0.6))
                     Text("Chưa có tin đăng acc nào")
                         .font(.subheadline.weight(.semibold))
                     Text("Chuyển sang mục Đăng bán để chọn ảnh acc, nhập giá và cách đăng nhập.")
                         .font(.caption)
-                        .foregroundStyle(.secondary)
+                        .foregroundColor(.secondary)
                         .multilineTextAlignment(.center)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(24)
-                .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 16))
+                .background(Color.white.opacity(0.88))
+                .cornerRadius(16)
             } else {
                 ForEach(listings) { item in
                     VStack(alignment: .leading, spacing: 10) {
@@ -471,7 +487,8 @@ struct ContentView: View {
                                 .scaledToFill()
                                 .frame(maxWidth: .infinity)
                                 .frame(height: 190)
-                                .clipShape(RoundedRectangle(cornerRadius: 12))
+                                .clipped()
+                                .cornerRadius(12)
                         } else {
                             RoundedRectangle(cornerRadius: 12)
                                 .fill(Color.brown.opacity(0.10))
@@ -480,10 +497,10 @@ struct ContentView: View {
                                     VStack(spacing: 6) {
                                         Image(systemName: "gamecontroller.fill")
                                             .font(.title2)
-                                            .foregroundStyle(.brown)
+                                            .foregroundColor(.brown)
                                         Text(item.platform.rawValue)
                                             .font(.caption.bold())
-                                            .foregroundStyle(.brown)
+                                            .foregroundColor(.brown)
                                     }
                                 )
                         }
@@ -492,35 +509,37 @@ struct ContentView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.title)
                                     .font(.headline)
-                                    .foregroundStyle(Color(red: 0.20, green: 0.15, blue: 0.10))
+                                    .foregroundColor(Color(red: 0.20, green: 0.15, blue: 0.10))
 
                                 HStack(spacing: 8) {
                                     Text(item.platform.rawValue)
                                         .font(.caption.bold())
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color.brown.opacity(0.14), in: Capsule())
+                                        .background(Color.brown.opacity(0.14))
+                                        .cornerRadius(10)
 
                                     Text("Đăng nhập: \(item.loginMethod.rawValue)")
                                         .font(.caption.weight(.semibold))
                                         .padding(.horizontal, 8)
                                         .padding(.vertical, 4)
-                                        .background(Color.blue.opacity(0.12), in: Capsule())
-                                        .foregroundStyle(.blue)
+                                        .background(Color.blue.opacity(0.12))
+                                        .foregroundColor(.blue)
+                                        .cornerRadius(10)
                                 }
                             }
 
                             Spacer()
 
                             Text(formatVND(item.price))
-                                .font(.headline.monospacedDigit())
-                                .foregroundStyle(Color(red: 0.72, green: 0.24, blue: 0.10))
+                                .font(.headline)
+                                .foregroundColor(Color(red: 0.72, green: 0.24, blue: 0.10))
                         }
 
                         HStack {
                             Text("Người đăng: \(item.sellerName)")
                                 .font(.caption)
-                                .foregroundStyle(.secondary)
+                                .foregroundColor(.secondary)
 
                             Spacer()
 
@@ -530,14 +549,18 @@ struct ContentView: View {
                             .font(.caption.bold())
                             .padding(.horizontal, 14)
                             .padding(.vertical, 8)
-                            .background(Color(red: 0.58, green: 0.36, blue: 0.16), in: Capsule())
-                            .foregroundStyle(.white)
-                            .buttonStyle(.plain)
+                            .background(Color(red: 0.58, green: 0.36, blue: 0.16))
+                            .foregroundColor(.white)
+                            .cornerRadius(16)
                         }
                     }
                     .padding(14)
-                    .background(Color.white.opacity(0.94), in: RoundedRectangle(cornerRadius: 16))
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+                    .background(Color.white.opacity(0.94))
+                    .cornerRadius(16)
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 16)
+                            .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+                    )
                 }
             }
         }
@@ -545,14 +568,14 @@ struct ContentView: View {
 
     private func buyListing(_ item: AccountListing) {
         guard let idx = currentUserIndex else { return }
-        guard accounts[idx].balance >= item.price else {
+        if accounts[idx].balance >= item.price {
+            accounts[idx].balance -= item.price
+            saveAccounts()
+            listings.removeAll { $0.id == item.id }
+            saveListings()
+        } else {
             showNotice = true
-            return
         }
-        accounts[idx].balance -= item.price
-        Self.saveAccounts(accounts)
-        listings.removeAll { $0.id == item.id }
-        Self.saveListings(listings)
     }
 
     private func wheelSpinView(user: UserAccount) -> some View {
@@ -560,42 +583,38 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Chọn vòng quay theo nền tảng")
                     .font(.headline)
-                    .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                    .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
 
                 VStack(spacing: 8) {
                     ForEach(GamePlatform.allCases) { platform in
                         let isSelected = selectedPlatform == platform
-                        Button {
+                        Button(action: {
                             selectedPlatform = platform
                             lastSpinResult = "Vòng \(platform.rawValue) • Giá \(formatVND(platform.spinCost))/lượt"
-                        } label: {
+                        }) {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(platform.rawValue)
                                         .font(.subheadline.bold())
-                                        .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                                        .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
                                     Text("Thưởng: \(platform.currencyName)")
                                         .font(.caption)
-                                        .foregroundStyle(.secondary)
+                                        .foregroundColor(.secondary)
                                 }
 
                                 Spacer()
 
                                 Text("\(formatVND(platform.spinCost)) / lượt")
-                                    .font(.subheadline.bold().monospacedDigit())
+                                    .font(.subheadline.bold())
                                     .padding(.horizontal, 10)
                                     .padding(.vertical, 6)
-                                    .background(
-                                        isSelected ? Color(red: 0.58, green: 0.36, blue: 0.16) : Color.brown.opacity(0.12),
-                                        in: Capsule()
-                                    )
-                                    .foregroundStyle(isSelected ? .white : Color(red: 0.45, green: 0.26, blue: 0.10))
+                                    .background(isSelected ? Color(red: 0.58, green: 0.36, blue: 0.16) : Color.brown.opacity(0.12))
+                                    .foregroundColor(isSelected ? .white : Color(red: 0.45, green: 0.26, blue: 0.10))
+                                    .cornerRadius(14)
                             }
                             .padding(12)
-                            .background(
-                                isSelected ? Color.brown.opacity(0.08) : Color.white,
-                                in: RoundedRectangle(cornerRadius: 12)
-                            )
+                            .background(isSelected ? Color.brown.opacity(0.08) : Color.white)
+                            .cornerRadius(12)
                             .overlay(
                                 RoundedRectangle(cornerRadius: 12)
                                     .stroke(
@@ -604,7 +623,6 @@ struct ContentView: View {
                                     )
                             )
                         }
-                        .buttonStyle(.plain)
                         .disabled(isSpinning)
                     }
                 }
@@ -612,73 +630,65 @@ struct ContentView: View {
                 HStack {
                     Text("Giá vòng đang chọn: \(formatVND(selectedPlatform.spinCost))")
                         .font(.footnote.bold())
-                        .foregroundStyle(Color(red: 0.58, green: 0.36, blue: 0.16))
+                        .foregroundColor(Color(red: 0.58, green: 0.36, blue: 0.16))
                     Spacer()
                     Text("Số dư: \(formatVND(user.balance))")
-                        .font(.footnote.bold().monospacedDigit())
-                        .foregroundStyle(user.balance >= selectedPlatform.spinCost ? Color(red: 0.12, green: 0.48, blue: 0.24) : .red)
+                        .font(.footnote.bold())
+                        .foregroundColor(user.balance >= selectedPlatform.spinCost ? Color(red: 0.12, green: 0.48, blue: 0.24) : .red)
                 }
             }
             .padding(14)
-            .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 16))
+            .background(Color.white.opacity(0.92))
+            .cornerRadius(16)
 
             ZStack {
                 Circle()
-                    .fill(
-                        AngularGradient(
-                            colors: [.cyan, .blue, .indigo, .purple, .orange, .cyan],
-                            center: .center
-                        )
-                    )
-                    .frame(width: 230, height: 230)
+                    .fill(Color(red: 0.25, green: 0.48, blue: 0.85))
+                    .frame(width: 220, height: 220)
                     .overlay(Circle().stroke(Color.white, lineWidth: 5))
-                    .shadow(color: .brown.opacity(0.25), radius: 10)
+                    .shadow(color: Color.brown.opacity(0.25), radius: 10)
                     .rotationEffect(.degrees(wheelAngle))
 
                 Circle()
                     .fill(Color.white)
-                    .frame(width: 72, height: 72)
+                    .frame(width: 76, height: 76)
                     .shadow(radius: 4)
 
                 VStack(spacing: 2) {
                     Text(selectedPlatform.currencyName)
                         .font(.caption.bold())
                     Text(formatVND(selectedPlatform.spinCost))
-                        .font(.caption2.monospacedDigit())
-                        .foregroundStyle(.secondary)
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
                 }
                 .multilineTextAlignment(.center)
-                .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
-            }
-            .overlay(alignment: .top) {
-                Image(systemName: "arrowtriangle.down.fill")
-                    .font(.title2)
-                    .foregroundStyle(.red)
-                    .offset(y: -10)
+                .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
             }
             .padding(.vertical, 8)
 
             Text(lastSpinResult)
                 .font(.subheadline.bold())
-                .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
                 .multilineTextAlignment(.center)
 
-            Button {
-                spinWheel()
-            } label: {
+            Button(action: spinWheel) {
                 Text(isSpinning ? "Đang quay..." : "Quay \(selectedPlatform.rawValue) (-\(formatVND(selectedPlatform.spinCost)))")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Color(red: 0.58, green: 0.36, blue: 0.16), in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color(red: 0.58, green: 0.36, blue: 0.16))
+                    .cornerRadius(14)
             }
-            .buttonStyle(.plain)
             .disabled(isSpinning)
         }
         .padding(14)
-        .background(Color.white.opacity(0.88), in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+        .background(Color.white.opacity(0.88))
+        .cornerRadius(18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+        )
     }
 
     private func spinWheel() {
@@ -686,14 +696,14 @@ struct ContentView: View {
         let cost = selectedPlatform.spinCost
         let currentBalance = accounts[idx].balance
 
-        guard currentBalance >= cost else {
+        if currentBalance < cost {
             let missingAmount = cost - currentBalance
             lastSpinResult = "Số dư chưa đủ \(formatVND(cost)) (còn thiếu \(formatVND(missingAmount))). Hãy qua mục Nạp tiền."
             return
         }
 
         accounts[idx].balance -= cost
-        Self.saveAccounts(accounts)
+        saveAccounts()
 
         isSpinning = true
         lastSpinResult = "Đã trừ \(formatVND(cost)) • Đang quay \(selectedPlatform.rawValue)..."
@@ -704,11 +714,11 @@ struct ContentView: View {
         let sliceAngle = 360.0 / Double(rewardPool.count)
         let extraDegrees = Double(pickedIndex) * sliceAngle + 1080.0
 
-        withAnimation(.easeOut(duration: 1.6)) {
+        withAnimation(.easeOut(duration: 1.5)) {
             wheelAngle += extraDegrees
         }
 
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.65) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.55) {
             guard let userIdx = currentUserIndex else {
                 isSpinning = false
                 return
@@ -723,7 +733,7 @@ struct ContentView: View {
                 accounts[userIdx].fv += picked.amount
             }
 
-            Self.saveAccounts(accounts)
+            saveAccounts()
             lastSpinResult = "Trúng \(picked.label)!"
             isSpinning = false
         }
@@ -733,7 +743,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Đăng tin bán acc lên màn hình chính")
                 .font(.headline)
-                .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
 
             Picker("Nền tảng", selection: $newPlatform) {
                 ForEach(GamePlatform.allCases) { platform in
@@ -744,19 +754,27 @@ struct ContentView: View {
 
             TextField("Tên / mô tả acc (vd: Acc rank cao, nhiều skin)", text: $newTitle)
                 .padding(12)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+                )
 
             TextField("Giá tiền cần bán (vd: 150000)", text: $newPriceText)
                 .keyboardType(.numberPad)
                 .padding(12)
-                .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+                .background(Color.white)
+                .cornerRadius(12)
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+                )
 
             VStack(alignment: .leading, spacing: 6) {
                 Text("Cách thức đăng nhập")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                    .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
 
                 Picker("Cách đăng nhập", selection: $newLoginMethod) {
                     ForEach(LoginMethod.allCases) { method in
@@ -774,46 +792,75 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 46)
-                .background(Color.brown.opacity(0.12), in: RoundedRectangle(cornerRadius: 12))
-                .foregroundStyle(Color(red: 0.45, green: 0.26, blue: 0.10))
-            }
-            .task(id: selectedListingPhoto) {
-                guard let item = selectedListingPhoto else { return }
-                if let data = try? await item.loadTransferable(type: Data.self) {
-                    newImageData = data
-                }
+                .background(Color.brown.opacity(0.12))
+                .foregroundColor(Color(red: 0.45, green: 0.26, blue: 0.10))
+                .cornerRadius(12)
             }
 
-            if let newImageData, let previewImg = UIImage(data: newImageData) {
+            Button(action: loadPickedImage) {
+                Text(selectedListingPhoto == nil ? "Tải ảnh đã chọn vào bài đăng" : "Xác nhận ảnh acc đã chọn")
+                    .font(.footnote.bold())
+                    .foregroundColor(Color(red: 0.58, green: 0.36, blue: 0.16))
+            }
+
+            if let data = newImageData, let previewImg = UIImage(data: data) {
                 Image(uiImage: previewImg)
                     .resizable()
                     .scaledToFill()
                     .frame(maxWidth: .infinity)
                     .frame(height: 165)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                    .clipped()
+                    .cornerRadius(12)
             }
 
-            if let postMessage {
-                Text(postMessage)
+            if let msg = postMessage {
+                Text(msg)
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color(red: 0.12, green: 0.48, blue: 0.24))
+                    .foregroundColor(Color(red: 0.12, green: 0.48, blue: 0.24))
             }
 
-            Button {
-                submitListing()
-            } label: {
+            Button(action: submitListing) {
                 Text("Đăng lên màn hình chính")
                     .font(.headline)
-                    .foregroundStyle(.white)
+                    .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 50)
-                    .background(Color(red: 0.58, green: 0.36, blue: 0.16), in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color(red: 0.58, green: 0.36, blue: 0.16))
+                    .cornerRadius(14)
             }
-            .buttonStyle(.plain)
         }
         .padding(14)
-        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+        .background(Color.white.opacity(0.92))
+        .cornerRadius(18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+        )
+    }
+
+    private func loadPickedImage() {
+        guard let item = selectedListingPhoto else {
+            postMessage = "Hãy bấm 'Chọn ảnh acc từ thư viện' trước."
+            return
+        }
+        Task {
+            do {
+                if let data = try await item.loadTransferable(type: Data.self) {
+                    DispatchQueue.main.async {
+                        self.newImageData = data
+                        self.postMessage = "Đã tải ảnh acc."
+                    }
+                } else {
+                    DispatchQueue.main.async {
+                        self.postMessage = "Không đọc được dữ liệu ảnh này, thử chọn ảnh khác."
+                    }
+                }
+            } catch {
+                DispatchQueue.main.async {
+                    self.postMessage = "Lỗi tải ảnh: \(error.localizedDescription)"
+                }
+            }
+        }
     }
 
     private func submitListing() {
@@ -822,11 +869,11 @@ struct ContentView: View {
         let digitsOnly = newPriceText.filter { $0.isNumber }
         let price = Int(digitsOnly) ?? 0
 
-        guard !cleanTitle.isEmpty else {
+        if cleanTitle.isEmpty {
             postMessage = "Nhập tên hoặc mô tả acc trước khi đăng."
             return
         }
-        guard price > 0 else {
+        if price <= 0 {
             postMessage = "Nhập giá tiền bán hợp lệ lớn hơn 0."
             return
         }
@@ -843,7 +890,7 @@ struct ContentView: View {
         )
 
         listings.insert(item, at: 0)
-        Self.saveListings(listings)
+        saveListings()
 
         newTitle = ""
         newPriceText = ""
@@ -857,44 +904,51 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Nạp tiền vào tài khoản")
                 .font(.headline)
-                .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
 
             Text("Chọn mệnh giá để cộng trực tiếp vào số dư tài khoản đang đăng nhập.")
                 .font(.footnote)
-                .foregroundStyle(.secondary)
+                .foregroundColor(.secondary)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(topUpAmounts, id: \.self) { amount in
-                    Button {
+                    Button(action: {
                         addBalance(amount)
-                    } label: {
+                    }) {
                         Text("+ \(formatVND(amount))")
-                            .font(.subheadline.bold().monospacedDigit())
-                            .foregroundStyle(Color(red: 0.22, green: 0.16, blue: 0.10))
+                            .font(.subheadline.bold())
+                            .foregroundColor(Color(red: 0.22, green: 0.16, blue: 0.10))
                             .frame(maxWidth: .infinity)
                             .frame(height: 50)
-                            .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.brown.opacity(0.3), lineWidth: 1))
+                            .background(Color.white)
+                            .cornerRadius(12)
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.brown.opacity(0.3), lineWidth: 1)
+                            )
                     }
-                    .buttonStyle(.plain)
                 }
             }
 
-            if let topUpNotice {
-                Text(topUpNotice)
+            if let notice = topUpNotice {
+                Text(notice)
                     .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color(red: 0.12, green: 0.48, blue: 0.24))
+                    .foregroundColor(Color(red: 0.12, green: 0.48, blue: 0.24))
             }
         }
         .padding(14)
-        .background(Color.white.opacity(0.92), in: RoundedRectangle(cornerRadius: 18))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.brown.opacity(0.25), lineWidth: 1))
+        .background(Color.white.opacity(0.92))
+        .cornerRadius(18)
+        .overlay(
+            RoundedRectangle(cornerRadius: 18)
+                .stroke(Color.brown.opacity(0.25), lineWidth: 1)
+        )
     }
 
     private func addBalance(_ amount: Int) {
         guard let idx = currentUserIndex else { return }
         accounts[idx].balance += amount
-        Self.saveAccounts(accounts)
+        saveAccounts()
         topUpNotice = "Đã cộng \(formatVND(amount)) vào tài khoản \(accounts[idx].username)."
     }
 
@@ -906,30 +960,26 @@ struct ContentView: View {
         return "\(numStr)đ"
     }
 
-    private static func loadAccounts() -> [UserAccount] {
-        guard let data = UserDefaults.standard.data(forKey: accountsKey),
-              let decoded = try? JSONDecoder().decode([UserAccount].self, from: data) else {
-            return []
+    private func loadInitialData() {
+        if let data = UserDefaults.standard.data(forKey: accountsKey),
+           let decoded = try? JSONDecoder().decode([UserAccount].self, from: data) {
+            accounts = decoded
         }
-        return decoded
+        activeUsername = UserDefaults.standard.string(forKey: currentUserKey) ?? ""
+        if let data = UserDefaults.standard.data(forKey: listingsKey),
+           let decoded = try? JSONDecoder().decode([AccountListing].self, from: data) {
+            listings = decoded
+        }
     }
 
-    private static func saveAccounts(_ list: [UserAccount]) {
-        if let encoded = try? JSONEncoder().encode(list) {
+    private func saveAccounts() {
+        if let encoded = try? JSONEncoder().encode(accounts) {
             UserDefaults.standard.set(encoded, forKey: accountsKey)
         }
     }
 
-    private static func loadListings() -> [AccountListing] {
-        guard let data = UserDefaults.standard.data(forKey: listingsKey),
-              let decoded = try? JSONDecoder().decode([AccountListing].self, from: data) else {
-            return []
-        }
-        return decoded
-    }
-
-    private static func saveListings(_ list: [AccountListing]) {
-        if let encoded = try? JSONEncoder().encode(list) {
+    private func saveListings() {
+        if let encoded = try? JSONEncoder().encode(listings) {
             UserDefaults.standard.set(encoded, forKey: listingsKey)
         }
     }
