@@ -1,21 +1,21 @@
 import SwiftUI
 import UIKit
 
-struct RewardItem: Identifiable, Codable {
+struct SpinReward: Identifiable, Codable {
     let id: UUID
-    let title: String
+    let label: String
     let amount: Int
     let weight: Int
 
-    init(id: UUID = UUID(), title: String, amount: Int, weight: Int) {
+    init(id: UUID = UUID(), label: String, amount: Int, weight: Int) {
         self.id = id
-        self.title = title
+        self.label = label
         self.amount = amount
         self.weight = max(1, weight)
     }
 }
 
-enum GameKind: String, CaseIterable, Identifiable, Codable {
+enum GameCategory: String, CaseIterable, Identifiable, Codable {
     case lienQuan = "Liên Quân"
     case freeFire = "Free Fire"
     case fcMobile = "FC Mobile"
@@ -30,7 +30,7 @@ enum GameKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    var unit: String {
+    var shortUnit: String {
         switch self {
         case .lienQuan: return "QH"
         case .freeFire: return "KC"
@@ -38,40 +38,40 @@ enum GameKind: String, CaseIterable, Identifiable, Codable {
         }
     }
 
-    var rewards: [RewardItem] {
+    var rewards: [SpinReward] {
         switch self {
         case .lienQuan:
             return [
-                RewardItem(title: "60 QH", amount: 60, weight: 34),
-                RewardItem(title: "150 QH", amount: 150, weight: 28),
-                RewardItem(title: "300 QH", amount: 300, weight: 19),
-                RewardItem(title: "650 QH", amount: 650, weight: 11),
-                RewardItem(title: "1.200 QH", amount: 1200, weight: 6),
-                RewardItem(title: "2.500 QH", amount: 2500, weight: 2)
+                SpinReward(label: "60 QH", amount: 60, weight: 34),
+                SpinReward(label: "150 QH", amount: 150, weight: 28),
+                SpinReward(label: "300 QH", amount: 300, weight: 19),
+                SpinReward(label: "650 QH", amount: 650, weight: 11),
+                SpinReward(label: "1.200 QH", amount: 1200, weight: 6),
+                SpinReward(label: "2.500 QH", amount: 2500, weight: 2)
             ]
         case .freeFire:
             return [
-                RewardItem(title: "70 KC", amount: 70, weight: 34),
-                RewardItem(title: "140 KC", amount: 140, weight: 28),
-                RewardItem(title: "290 KC", amount: 290, weight: 19),
-                RewardItem(title: "580 KC", amount: 580, weight: 11),
-                RewardItem(title: "1.150 KC", amount: 1150, weight: 6),
-                RewardItem(title: "2.200 KC", amount: 2200, weight: 2)
+                SpinReward(label: "70 KC", amount: 70, weight: 34),
+                SpinReward(label: "140 KC", amount: 140, weight: 28),
+                SpinReward(label: "290 KC", amount: 290, weight: 19),
+                SpinReward(label: "580 KC", amount: 580, weight: 11),
+                SpinReward(label: "1.150 KC", amount: 1150, weight: 6),
+                SpinReward(label: "2.200 KC", amount: 2200, weight: 2)
             ]
         case .fcMobile:
             return [
-                RewardItem(title: "100 FV", amount: 100, weight: 34),
-                RewardItem(title: "200 FV", amount: 200, weight: 28),
-                RewardItem(title: "450 FV", amount: 450, weight: 19),
-                RewardItem(title: "950 FV", amount: 950, weight: 11),
-                RewardItem(title: "1.800 FV", amount: 1800, weight: 6),
-                RewardItem(title: "3.500 FV", amount: 3500, weight: 2)
+                SpinReward(label: "100 FV", amount: 100, weight: 34),
+                SpinReward(label: "200 FV", amount: 200, weight: 28),
+                SpinReward(label: "450 FV", amount: 450, weight: 19),
+                SpinReward(label: "950 FV", amount: 950, weight: 11),
+                SpinReward(label: "1.800 FV", amount: 1800, weight: 6),
+                SpinReward(label: "3.500 FV", amount: 3500, weight: 2)
             ]
         }
     }
 }
 
-enum AuthModeKind: String, CaseIterable, Identifiable, Codable {
+enum LoginType: String, CaseIterable, Identifiable, Codable {
     case facebook = "Facebook"
     case google = "Google"
     case account = "Tài khoản"
@@ -79,7 +79,7 @@ enum AuthModeKind: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 }
 
-struct ShopAccount: Codable, Identifiable {
+struct MemberProfile: Codable, Identifiable {
     let id: UUID
     let username: String
     let password: String
@@ -89,17 +89,17 @@ struct ShopAccount: Codable, Identifiable {
     var fv: Int
 }
 
-struct ShopListing: Identifiable, Codable {
+struct MarketItem: Identifiable, Codable {
     let id: UUID
-    let seller: String
-    let game: GameKind
+    let owner: String
+    let game: GameCategory
     let title: String
     let price: Int
-    let authType: AuthModeKind
+    let loginType: LoginType
     let imageData: Data?
 }
 
-struct SliceShape: Shape {
+struct WheelSegmentShape: Shape {
     let startAngle: Angle
     let endAngle: Angle
 
@@ -114,11 +114,11 @@ struct SliceShape: Shape {
     }
 }
 
-struct ImagePickerSheet: UIViewControllerRepresentable {
-    let onPicked: (UIImage?) -> Void
+struct LibraryImagePicker: UIViewControllerRepresentable {
+    let onSelect: (UIImage?) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onPicked: onPicked)
+        Coordinator(onSelect: onSelect)
     }
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
@@ -131,211 +131,211 @@ struct ImagePickerSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
     final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
-        let onPicked: (UIImage?) -> Void
+        let onSelect: (UIImage?) -> Void
 
-        init(onPicked: @escaping (UIImage?) -> Void) {
-            self.onPicked = onPicked
+        init(onSelect: @escaping (UIImage?) -> Void) {
+            self.onSelect = onSelect
         }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
             let img = info[.originalImage] as? UIImage
-            onPicked(img)
+            onSelect(img)
             picker.dismiss(animated: true)
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            onPicked(nil)
+            onSelect(nil)
             picker.dismiss(animated: true)
         }
     }
 }
 
 struct ContentView: View {
-    private let accountsKey = "shop_accounts_store_v3"
-    private let currentUserKey = "shop_current_user_v3"
-    private let listingsKey = "shop_listings_store_v3"
-    private let darkThemeKey = "shop_dark_theme_v3"
-    private let showRatesKey = "shop_show_rates_v3"
-    private let hapticKey = "shop_haptic_v3"
+    private let profilesKey = "lab_notebook_profiles_v1"
+    private let activeKey = "lab_notebook_active_v1"
+    private let itemsKey = "lab_notebook_items_v1"
+    private let darkKey = "lab_notebook_dark_v1"
+    private let ratesKey = "lab_notebook_rates_v1"
+    private let hapticKey = "lab_notebook_haptic_v1"
 
-    @State private var accounts: [ShopAccount] = []
-    @State private var currentUsername: String = ""
-    @State private var listings: [ShopListing] = []
+    @State private var profiles: [MemberProfile] = []
+    @State private var activeUser: String = ""
+    @State private var items: [MarketItem] = []
 
-    @State private var isDarkMode: Bool = true
+    @State private var darkTheme: Bool = true
     @State private var showRates: Bool = true
-    @State private var hapticOn: Bool = true
+    @State private var enableHaptic: Bool = true
 
-    @State private var registerMode: Bool = false
-    @State private var inputUser: String = ""
-    @State private var inputPass: String = ""
-    @State private var inputPass2: String = ""
-    @State private var authError: String?
+    @State private var isSignUp: Bool = false
+    @State private var authName: String = ""
+    @State private var authPass: String = ""
+    @State private var authPassAgain: String = ""
+    @State private var authAlert: String?
 
-    @State private var tabIndex: Int = 0
-    @State private var filterGame: GameKind? = nil
+    @State private var currentTab: Int = 0
+    @State private var filterGame: GameCategory? = nil
 
-    @State private var spinGame: GameKind = .lienQuan
-    @State private var wheelDeg: Double = 0
-    @State private var spinning: Bool = false
-    @State private var spinText: String = "Chọn vòng quay rồi bấm Quay"
+    @State private var spinGame: GameCategory = .lienQuan
+    @State private var spinAngle: Double = 0
+    @State private var isSpinning: Bool = false
+    @State private var spinStatus: String = "Chọn vòng quay rồi bấm Quay"
 
-    @State private var postGame: GameKind = .lienQuan
-    @State private var postTitle: String = ""
-    @State private var postPrice: String = ""
-    @State private var postAuth: AuthModeKind = .facebook
-    @State private var pickerOpen: Bool = false
-    @State private var previewImg: UIImage?
-    @State private var pickedData: Data?
-    @State private var postStatus: String?
+    @State private var draftGame: GameCategory = .lienQuan
+    @State private var draftTitle: String = ""
+    @State private var draftPrice: String = ""
+    @State private var draftLogin: LoginType = .facebook
+    @State private var showPicker: Bool = false
+    @State private var draftPreview: UIImage?
+    @State private var draftImageData: Data?
+    @State private var draftNotice: String?
 
-    @State private var topUpMsg: String?
-    @State private var settingMsg: String?
+    @State private var walletNotice: String?
+    @State private var prefNotice: String?
 
-    private let topUpList = [10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
+    private let topUpPresets = [10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
 
-    private var userIndex: Int? {
-        accounts.firstIndex { $0.username.caseInsensitiveCompare(currentUsername) == .orderedSame }
+    private var activeIndex: Int? {
+        profiles.firstIndex { $0.username.caseInsensitiveCompare(activeUser) == .orderedSame }
     }
 
-    private var activeUser: ShopAccount? {
-        guard let idx = userIndex else { return nil }
-        return accounts[idx]
+    private var currentProfile: MemberProfile? {
+        guard let idx = activeIndex else { return nil }
+        return profiles[idx]
     }
 
-    private var bgColor: Color {
-        isDarkMode ? Color(red: 0.07, green: 0.08, blue: 0.11) : Color(red: 0.97, green: 0.97, blue: 0.96)
+    private var surfaceBg: Color {
+        darkTheme ? Color(red: 0.07, green: 0.08, blue: 0.11) : Color(red: 0.97, green: 0.97, blue: 0.96)
     }
 
-    private var cardColor: Color {
-        isDarkMode ? Color(red: 0.14, green: 0.16, blue: 0.21) : Color.white
+    private var cardSurface: Color {
+        darkTheme ? Color(red: 0.14, green: 0.16, blue: 0.21) : Color.white
     }
 
-    private var fieldColor: Color {
-        isDarkMode ? Color(red: 0.09, green: 0.10, blue: 0.14) : Color(red: 0.93, green: 0.94, blue: 0.95)
+    private var fieldSurface: Color {
+        darkTheme ? Color(red: 0.09, green: 0.10, blue: 0.14) : Color(red: 0.93, green: 0.94, blue: 0.95)
     }
 
-    private var textMain: Color {
-        isDarkMode ? .white : Color(red: 0.12, green: 0.12, blue: 0.14)
+    private var inkPrimary: Color {
+        darkTheme ? .white : Color(red: 0.12, green: 0.12, blue: 0.14)
     }
 
-    private var textSub: Color {
-        isDarkMode ? Color.white.opacity(0.72) : Color(red: 0.42, green: 0.42, blue: 0.46)
+    private var inkSecondary: Color {
+        darkTheme ? Color.white.opacity(0.72) : Color(red: 0.42, green: 0.42, blue: 0.46)
     }
 
-    private var lineColor: Color {
-        isDarkMode ? Color.white.opacity(0.12) : Color.black.opacity(0.12)
+    private var strokeTone: Color {
+        darkTheme ? Color.white.opacity(0.12) : Color.black.opacity(0.12)
     }
 
-    private func tapHaptic() {
-        guard hapticOn else { return }
+    private func pulseHaptic() {
+        guard enableHaptic else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                bgColor.ignoresSafeArea()
+                surfaceBg.ignoresSafeArea()
 
                 HStack(spacing: 0) {
                     Rectangle()
-                        .fill(isDarkMode ? Color(red: 0.22, green: 0.18, blue: 0.14) : Color(red: 0.22, green: 0.22, blue: 0.25))
+                        .fill(darkTheme ? Color(red: 0.22, green: 0.18, blue: 0.14) : Color(red: 0.22, green: 0.22, blue: 0.25))
                         .frame(width: 10)
                         .ignoresSafeArea()
 
-                    if let u = activeUser {
-                        mainView(user: u)
+                    if let profile = currentProfile {
+                        workspaceView(profile: profile)
                     } else {
-                        loginView
+                        entryView
                     }
                 }
             }
-            .navigationTitle(activeUser == nil ? "Sổ Acc & Vòng Quay" : "Sổ • \(activeUser!.username)")
+            .navigationTitle(currentProfile == nil ? "Sổ Lab" : "Sổ • \(currentProfile!.username)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    if activeUser != nil {
-                        Button("Thoát") {
-                            tapHaptic()
-                            currentUsername = ""
-                            UserDefaults.standard.set("", forKey: currentUserKey)
-                            inputPass = ""
-                            authError = nil
+                    if currentProfile != nil {
+                        Button("Đăng xuất") {
+                            pulseHaptic()
+                            activeUser = ""
+                            UserDefaults.standard.set("", forKey: activeKey)
+                            authPass = ""
+                            authAlert = nil
                         }
                         .foregroundColor(.orange)
                     }
                 }
             }
-            .sheet(isPresented: $pickerOpen) {
-                ImagePickerSheet { img in
+            .sheet(isPresented: $showPicker) {
+                LibraryImagePicker { img in
                     if let img = img {
-                        let packed = packImage(img)
-                        previewImg = packed.0
-                        pickedData = packed.1
-                        postStatus = "Đã nhận ảnh acc."
+                        let packed = shrinkImage(img)
+                        draftPreview = packed.0
+                        draftImageData = packed.1
+                        draftNotice = "Đã tải ảnh lên khung xem trước."
                     }
                 }
             }
             .onAppear {
-                loadStore()
+                restoreState()
             }
         }
-        .preferredColorScheme(isDarkMode ? .dark : .light)
+        .preferredColorScheme(darkTheme ? .dark : .light)
     }
 
-    private var loginView: some View {
+    private var entryView: some View {
         ScrollView {
             VStack(spacing: 16) {
                 VStack(spacing: 6) {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 38))
                         .foregroundColor(.orange)
-                    Text("Sổ Acc & Vòng Quay")
+                    Text("Sổ Ghi Chép & Vòng Quay")
                         .font(.title2.bold())
-                        .foregroundColor(textMain)
-                    Text(registerMode ? "Tạo tài khoản mới" : "Đăng nhập tài khoản")
+                        .foregroundColor(inkPrimary)
+                    Text(isSignUp ? "Tạo tài khoản thử nghiệm" : "Đăng nhập tài khoản thử nghiệm")
                         .font(.subheadline)
-                        .foregroundColor(textSub)
+                        .foregroundColor(inkSecondary)
                 }
 
-                Picker("Chế độ", selection: $registerMode) {
+                Picker("Chế độ", selection: $isSignUp) {
                     Text("Đăng nhập").tag(false)
                     Text("Đăng ký").tag(true)
                 }
                 .pickerStyle(.segmented)
 
                 VStack(spacing: 12) {
-                    TextField("Tên tài khoản", text: $inputUser)
+                    TextField("Tên đăng nhập", text: $authName)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
-                        .foregroundColor(textMain)
+                        .foregroundColor(inkPrimary)
                         .padding(12)
-                        .background(fieldColor)
+                        .background(fieldSurface)
                         .cornerRadius(10)
 
-                    SecureField("Mật khẩu", text: $inputPass)
-                        .foregroundColor(textMain)
+                    SecureField("Mật khẩu", text: $authPass)
+                        .foregroundColor(inkPrimary)
                         .padding(12)
-                        .background(fieldColor)
+                        .background(fieldSurface)
                         .cornerRadius(10)
 
-                    if registerMode {
-                        SecureField("Nhập lại mật khẩu", text: $inputPass2)
-                            .foregroundColor(textMain)
+                    if isSignUp {
+                        SecureField("Nhập lại mật khẩu", text: $authPassAgain)
+                            .foregroundColor(inkPrimary)
                             .padding(12)
-                            .background(fieldColor)
+                            .background(fieldSurface)
                             .cornerRadius(10)
                     }
 
-                    if let err = authError {
-                        Text(err)
+                    if let alert = authAlert {
+                        Text(alert)
                             .font(.footnote.bold())
                             .foregroundColor(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Button(action: submitAuth) {
-                        Text(registerMode ? "Tạo tài khoản" : "Vào sổ")
+                    Button(action: processAuth) {
+                        Text(isSignUp ? "Tạo tài khoản" : "Vào sổ")
                             .font(.headline)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
@@ -345,82 +345,82 @@ struct ContentView: View {
                     }
                 }
                 .padding(14)
-                .background(cardColor)
+                .background(cardSurface)
                 .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(strokeTone, lineWidth: 1))
             }
             .padding(16)
         }
     }
 
-    private func submitAuth() {
-        tapHaptic()
-        let u = inputUser.trimmingCharacters(in: .whitespacesAndNewlines)
-        let p = inputPass
+    private func processAuth() {
+        pulseHaptic()
+        let name = authName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let pass = authPass
 
-        if u.count < 3 {
-            authError = "Tên tài khoản ít nhất 3 ký tự."
+        if name.count < 3 {
+            authAlert = "Tên đăng nhập ít nhất 3 ký tự."
             return
         }
-        if p.count < 4 {
-            authError = "Mật khẩu ít nhất 4 ký tự."
+        if pass.count < 4 {
+            authAlert = "Mật khẩu ít nhất 4 ký tự."
             return
         }
 
-        if registerMode {
-            if p != inputPass2 {
-                authError = "Mật khẩu nhập lại không khớp."
+        if isSignUp {
+            if pass != authPassAgain {
+                authAlert = "Mật khẩu nhập lại chưa khớp."
                 return
             }
-            if accounts.contains(where: { $0.username.caseInsensitiveCompare(u) == .orderedSame }) {
-                authError = "Tài khoản này đã tồn tại."
+            if profiles.contains(where: { $0.username.caseInsensitiveCompare(name) == .orderedSame }) {
+                authAlert = "Tên đăng nhập đã tồn tại."
                 return
             }
-            let acc = ShopAccount(id: UUID(), username: u, password: p, balance: 0, quanHuy: 0, kimCuong: 0, fv: 0)
-            accounts.append(acc)
-            saveAccounts()
-            currentUsername = acc.username
-            UserDefaults.standard.set(acc.username, forKey: currentUserKey)
-            authError = nil
+            let created = MemberProfile(id: UUID(), username: name, password: pass, balance: 0, quanHuy: 0, kimCuong: 0, fv: 0)
+            profiles.append(created)
+            persistProfiles()
+            activeUser = created.username
+            UserDefaults.standard.set(created.username, forKey: activeKey)
+            authAlert = nil
         } else {
-            guard let found = accounts.first(where: {
-                $0.username.caseInsensitiveCompare(u) == .orderedSame && $0.password == p
+            guard let matched = profiles.first(where: {
+                $0.username.caseInsensitiveCompare(name) == .orderedSame && $0.password == pass
             }) else {
-                authError = "Sai tên tài khoản hoặc mật khẩu."
+                authAlert = "Sai tên đăng nhập hoặc mật khẩu."
                 return
             }
-            currentUsername = found.username
-            UserDefaults.standard.set(found.username, forKey: currentUserKey)
-            authError = nil
+            activeUser = matched.username
+            UserDefaults.standard.set(matched.username, forKey: activeKey)
+            authAlert = nil
         }
     }
 
-    private func mainView(user: ShopAccount) -> some View {
+    private func workspaceView(profile: MemberProfile) -> some View {
         ScrollView {
             VStack(spacing: 14) {
                 HStack {
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Số dư")
                             .font(.caption)
-                            .foregroundColor(textSub)
-                        Text(formatMoney(user.balance))
+                            .foregroundColor(inkSecondary)
+                        Text(formatVND(profile.balance))
                             .font(.headline.bold())
                             .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
                     }
                     Spacer()
                     HStack(spacing: 8) {
-                        badgeBox(label: "QH", val: user.quanHuy, tint: .blue)
-                        badgeBox(label: "KC", val: user.kimCuong, tint: .teal)
-                        badgeBox(label: "FV", val: user.fv, tint: .orange)
+                        statPill(tag: "QH", count: profile.quanHuy, color: .blue)
+                        statPill(tag: "KC", count: profile.kimCuong, color: .teal)
+                        statPill(tag: "FV", count: profile.fv, color: .orange)
                     }
                 }
                 .padding(12)
-                .background(cardColor)
+                .background(cardSurface)
                 .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(lineColor, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(strokeTone, lineWidth: 1))
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    Picker("Mục", selection: $tabIndex) {
+                    Picker("Trang", selection: $currentTab) {
                         Text("Màn chính").tag(0)
                         Text("Vòng quay").tag(1)
                         Text("Đăng bán").tag(2)
@@ -431,64 +431,64 @@ struct ContentView: View {
                     .frame(minWidth: 380)
                 }
                 .padding(4)
-                .background(cardColor)
+                .background(cardSurface)
                 .cornerRadius(12)
 
-                switch tabIndex {
+                switch currentTab {
                 case 0:
-                    marketTab
+                    catalogSection
                 case 1:
-                    wheelTab(user: user)
+                    wheelSection
                 case 2:
-                    postTab
+                    draftSection
                 case 3:
-                    topUpTab
+                    walletSection
                 default:
-                    settingsTab(user: user)
+                    preferencesSection(profile: profile)
                 }
             }
             .padding(14)
         }
     }
 
-    private func badgeBox(label: String, val: Int, tint: Color) -> some View {
+    private func statPill(tag: String, count: Int, color: Color) -> some View {
         VStack(spacing: 1) {
-            Text("\(val)")
+            Text("\(count)")
                 .font(.caption.bold())
-                .foregroundColor(tint)
-            Text(label)
+                .foregroundColor(color)
+            Text(tag)
                 .font(.caption2)
-                .foregroundColor(textSub)
+                .foregroundColor(inkSecondary)
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 5)
-        .background(fieldColor)
+        .background(fieldSurface)
         .cornerRadius(8)
     }
 
-    private var marketTab: some View {
-        let shown: [ShopListing]
+    private var catalogSection: some View {
+        let visible: [MarketItem]
         if let fg = filterGame {
-            shown = listings.filter { $0.game == fg }
+            visible = items.filter { $0.game == fg }
         } else {
-            shown = listings
+            visible = items
         }
 
         return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Tin rao acc (\(shown.count))")
+                Text("Danh sách acc (\(visible.count))")
                     .font(.headline)
-                    .foregroundColor(textMain)
+                    .foregroundColor(inkPrimary)
                 Spacer()
                 Button("+ Đăng bán") {
-                    tapHaptic()
-                    tabIndex = 2
+                    pulseHaptic()
+                    currentTab = 2
                 }
                 .font(.subheadline.bold())
                 .foregroundColor(.orange)
             }
 
-            if !listings.isEmpty {
+            if !items.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
                         Button("Tất cả") {
@@ -497,84 +497,84 @@ struct ContentView: View {
                         .font(.caption.bold())
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(filterGame == nil ? Color.orange : cardColor)
-                        .foregroundColor(filterGame == nil ? .white : textMain)
+                        .background(filterGame == nil ? Color.orange : cardSurface)
+                        .foregroundColor(filterGame == nil ? .white : inkPrimary)
                         .cornerRadius(12)
 
-                        ForEach(GameKind.allCases) { g in
+                        ForEach(GameCategory.allCases) { g in
                             Button(g.rawValue) {
                                 filterGame = g
                             }
                             .font(.caption.bold())
                             .padding(.horizontal, 10)
                             .padding(.vertical, 6)
-                            .background(filterGame == g ? Color.orange : cardColor)
-                            .foregroundColor(filterGame == g ? .white : textMain)
+                            .background(filterGame == g ? Color.orange : cardSurface)
+                            .foregroundColor(filterGame == g ? .white : inkPrimary)
                             .cornerRadius(12)
                         }
                     }
                 }
             }
 
-            if shown.isEmpty {
+            if visible.isEmpty {
                 VStack(spacing: 8) {
                     Image(systemName: "photo.on.rectangle")
                         .font(.title)
                         .foregroundColor(.orange)
-                    Text("Chưa có acc nào")
+                    Text("Chưa có mục nào")
                         .font(.subheadline.bold())
-                        .foregroundColor(textMain)
-                    Text("Vào mục Đăng bán để chọn ảnh và đăng tin.")
+                        .foregroundColor(inkPrimary)
+                    Text("Vào mục Đăng bán để chọn ảnh và tạo mục thử nghiệm.")
                         .font(.caption)
-                        .foregroundColor(textSub)
+                        .foregroundColor(inkSecondary)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(24)
-                .background(cardColor)
+                .background(cardSurface)
                 .cornerRadius(16)
             } else {
-                ForEach(shown) { item in
+                ForEach(visible) { item in
                     VStack(alignment: .leading, spacing: 10) {
-                        if let d = item.imageData, let ui = UIImage(data: d) {
+                        if let data = item.imageData, let ui = UIImage(data: data) {
                             Image(uiImage: ui)
                                 .resizable()
                                 .scaledToFit()
                                 .frame(maxWidth: .infinity)
                                 .frame(maxHeight: 220)
-                                .background(fieldColor)
+                                .background(fieldSurface)
                                 .cornerRadius(12)
                         } else {
                             RoundedRectangle(cornerRadius: 12)
-                                .fill(fieldColor)
+                                .fill(fieldSurface)
                                 .frame(height: 120)
-                                .overlay(Text(item.game.rawValue).foregroundColor(textSub))
+                                .overlay(Text(item.game.rawValue).foregroundColor(inkSecondary))
                         }
 
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(item.title)
                                     .font(.headline)
-                                    .foregroundColor(textMain)
-                                Text("\(item.game.rawValue) • Đăng nhập: \(item.authType.rawValue)")
+                                    .foregroundColor(inkPrimary)
+                                Text("\(item.game.rawValue) • Đăng nhập: \(item.loginType.rawValue)")
                                     .font(.caption)
-                                    .foregroundColor(textSub)
+                                    .foregroundColor(inkSecondary)
                             }
                             Spacer()
-                            Text(formatMoney(item.price))
+                            Text(formatVND(item.price))
                                 .font(.headline.bold())
                                 .foregroundColor(.orange)
                         }
 
                         HStack {
-                            Text("Bởi \(item.seller)")
+                            Text("Bởi \(item.owner)")
                                 .font(.caption)
-                                .foregroundColor(textSub)
+                                .foregroundColor(inkSecondary)
                             Spacer()
-                            if item.seller.caseInsensitiveCompare(currentUsername) == .orderedSame {
+                            if item.owner.caseInsensitiveCompare(activeUser) == .orderedSame {
                                 Button("Xóa") {
-                                    tapHaptic()
-                                    listings.removeAll { $0.id == item.id }
-                                    saveListings()
+                                    pulseHaptic()
+                                    items.removeAll { $0.id == item.id }
+                                    persistItems()
                                 }
                                 .font(.caption.bold())
                                 .foregroundColor(.red)
@@ -583,14 +583,14 @@ struct ContentView: View {
                                 .background(Color.red.opacity(0.14))
                                 .cornerRadius(12)
                             }
-                            Button("Mua") {
-                                tapHaptic()
-                                guard let idx = userIndex else { return }
-                                if accounts[idx].balance >= item.price {
-                                    accounts[idx].balance -= item.price
-                                    saveAccounts()
-                                    listings.removeAll { $0.id == item.id }
-                                    saveListings()
+                            Button("Mua thử") {
+                                pulseHaptic()
+                                guard let idx = activeIndex else { return }
+                                if profiles[idx].balance >= item.price {
+                                    profiles[idx].balance -= item.price
+                                    persistProfiles()
+                                    items.removeAll { $0.id == item.id }
+                                    persistItems()
                                 }
                             }
                             .font(.caption.bold())
@@ -602,16 +602,16 @@ struct ContentView: View {
                         }
                     }
                     .padding(12)
-                    .background(cardColor)
+                    .background(cardSurface)
                     .cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(strokeTone, lineWidth: 1))
                 }
             }
         }
     }
 
-    private func sliceTint(_ i: Int) -> Color {
-        let arr: [Color] = [
+    private func segmentColor(_ i: Int) -> Color {
+        let colors: [Color] = [
             Color(red: 0.22, green: 0.42, blue: 0.78),
             Color(red: 0.16, green: 0.62, blue: 0.56),
             Color(red: 0.78, green: 0.42, blue: 0.16),
@@ -619,56 +619,56 @@ struct ContentView: View {
             Color(red: 0.20, green: 0.54, blue: 0.86),
             Color(red: 0.74, green: 0.22, blue: 0.36)
         ]
-        return arr[i % arr.count]
+        return colors[i % colors.count]
     }
 
-    private func wheelTab(user: ShopAccount) -> some View {
-        let items = spinGame.rewards
-        let step = 360.0 / Double(items.count)
+    private var wheelSection: some View {
+        let list = spinGame.rewards
+        let step = 360.0 / Double(list.count)
 
         return VStack(spacing: 14) {
             VStack(spacing: 8) {
-                ForEach(GameKind.allCases) { g in
-                    let sel = spinGame == g
+                ForEach(GameCategory.allCases) { g in
+                    let selected = spinGame == g
                     Button(action: {
-                        tapHaptic()
+                        pulseHaptic()
                         spinGame = g
-                        spinText = "Vòng \(g.rawValue) • \(formatMoney(g.cost))/lượt"
+                        spinStatus = "Vòng \(g.rawValue) • \(formatVND(g.cost))/lượt"
                     }) {
                         HStack {
                             Text(g.rawValue)
                                 .font(.subheadline.bold())
-                                .foregroundColor(textMain)
+                                .foregroundColor(inkPrimary)
                             Spacer()
-                            Text("\(formatMoney(g.cost))/lượt")
+                            Text("\(formatVND(g.cost))/lượt")
                                 .font(.caption.bold())
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(sel ? Color.orange : fieldColor)
-                                .foregroundColor(sel ? .white : textMain)
+                                .background(selected ? Color.orange : fieldSurface)
+                                .foregroundColor(selected ? .white : inkPrimary)
                                 .cornerRadius(10)
                         }
                         .padding(10)
-                        .background(sel ? Color.orange.opacity(0.14) : fieldColor)
+                        .background(selected ? Color.orange.opacity(0.14) : fieldSurface)
                         .cornerRadius(12)
                     }
-                    .disabled(spinning)
+                    .disabled(isSpinning)
                 }
             }
 
             ZStack {
                 ZStack {
-                    ForEach(0..<items.count, id: \.self) { i in
+                    ForEach(0..<list.count, id: \.self) { i in
                         let a0 = -90.0 + Double(i) * step - step / 2.0
                         let a1 = a0 + step
                         let mid = (-90.0 + Double(i) * step) * Double.pi / 180.0
                         let rad: CGFloat = 74
 
-                        SliceShape(startAngle: .degrees(a0), endAngle: .degrees(a1))
-                            .fill(sliceTint(i))
-                            .overlay(SliceShape(startAngle: .degrees(a0), endAngle: .degrees(a1)).stroke(Color.white.opacity(0.85), lineWidth: 1.5))
+                        WheelSegmentShape(startAngle: .degrees(a0), endAngle: .degrees(a1))
+                            .fill(segmentColor(i))
+                            .overlay(WheelSegmentShape(startAngle: .degrees(a0), endAngle: .degrees(a1)).stroke(Color.white.opacity(0.85), lineWidth: 1.5))
 
-                        Text(items[i].title)
+                        Text(list[i].label)
                             .font(.caption2.bold())
                             .foregroundColor(.white)
                             .offset(x: cos(mid) * rad, y: sin(mid) * rad)
@@ -677,16 +677,16 @@ struct ContentView: View {
                 .frame(width: 230, height: 230)
                 .clipShape(Circle())
                 .overlay(Circle().stroke(Color.white, lineWidth: 3))
-                .rotationEffect(.degrees(wheelDeg))
+                .rotationEffect(.degrees(spinAngle))
 
                 Circle()
-                    .fill(cardColor)
+                    .fill(cardSurface)
                     .frame(width: 68, height: 68)
                     .overlay(Circle().stroke(Color.orange, lineWidth: 2))
 
-                Text(spinGame.unit)
+                Text(spinGame.shortUnit)
                     .font(.caption.bold())
-                    .foregroundColor(textMain)
+                    .foregroundColor(inkPrimary)
             }
             .overlay(alignment: .top) {
                 Image(systemName: "arrowtriangle.down.fill")
@@ -696,18 +696,18 @@ struct ContentView: View {
             }
             .padding(.top, 10)
 
-            Text(spinText)
+            Text(spinStatus)
                 .font(.subheadline.bold())
-                .foregroundColor(textMain)
+                .foregroundColor(inkPrimary)
                 .multilineTextAlignment(.center)
 
             if showRates {
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(items) { r in
+                    ForEach(list) { r in
                         HStack {
-                            Text(r.title)
+                            Text(r.label)
                                 .font(.caption.bold())
-                                .foregroundColor(textMain)
+                                .foregroundColor(inkPrimary)
                             Spacer()
                             Text("\(r.weight)%")
                                 .font(.caption2.bold())
@@ -715,41 +715,41 @@ struct ContentView: View {
                         }
                         .padding(.horizontal, 10)
                         .padding(.vertical, 6)
-                        .background(fieldColor)
+                        .background(fieldSurface)
                         .cornerRadius(8)
                     }
                 }
             }
 
-            Button(action: runSpin) {
-                Text(spinning ? "Đang quay..." : "Quay \(spinGame.rawValue) (-\(formatMoney(spinGame.cost)))")
+            Button(action: triggerSpin) {
+                Text(isSpinning ? "Đang quay..." : "Quay \(spinGame.rawValue) (-\(formatVND(spinGame.cost)))")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .frame(height: 48)
-                    .background(spinning ? Color.orange.opacity(0.6) : Color.orange)
+                    .background(isSpinning ? Color.orange.opacity(0.6) : Color.orange)
                     .cornerRadius(12)
             }
-            .disabled(spinning)
+            .disabled(isSpinning)
         }
         .padding(14)
-        .background(cardColor)
+        .background(cardSurface)
         .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(strokeTone, lineWidth: 1))
     }
 
-    private func runSpin() {
-        guard let idx = userIndex, !spinning else { return }
-        tapHaptic()
+    private func triggerSpin() {
+        guard let idx = activeIndex, !isSpinning else { return }
+        pulseHaptic()
 
         let cost = spinGame.cost
-        if accounts[idx].balance < cost {
-            spinText = "Không đủ số dư (\(formatMoney(cost))). Qua mục Nạp tiền."
+        if profiles[idx].balance < cost {
+            spinStatus = "Không đủ số dư (\(formatVND(cost))). Qua mục Nạp tiền."
             return
         }
 
-        accounts[idx].balance -= cost
-        saveAccounts()
+        profiles[idx].balance -= cost
+        persistProfiles()
 
         let pool = spinGame.rewards
         let totalW = pool.reduce(0) { $0 + $1.weight }
@@ -767,102 +767,102 @@ struct ContentView: View {
 
         let step = 360.0 / Double(pool.count)
         let targetDeg = Double(chosenIdx) * step
-        let curMod = wheelDeg.truncatingRemainder(dividingBy: 360.0)
+        let curMod = spinAngle.truncatingRemainder(dividingBy: 360.0)
         var diff = ((360.0 - targetDeg).truncatingRemainder(dividingBy: 360.0)) - curMod
         if diff < 0 { diff += 360.0 }
         let spinTotal = 1800.0 + diff + Double.random(in: -step * 0.2 ... step * 0.2)
 
-        spinning = true
-        spinText = "Đang quay \(spinGame.rawValue)..."
+        isSpinning = true
+        spinStatus = "Đang quay \(spinGame.rawValue)..."
 
         withAnimation(.timingCurve(0.14, 0.88, 0.25, 1.0, duration: 2.2)) {
-            wheelDeg += spinTotal
+            spinAngle += spinTotal
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.25) {
-            guard let uIdx = userIndex else {
-                spinning = false
+            guard let uIdx = activeIndex else {
+                isSpinning = false
                 return
             }
             switch spinGame {
-            case .lienQuan: accounts[uIdx].quanHuy += chosen.amount
-            case .freeFire: accounts[uIdx].kimCuong += chosen.amount
-            case .fcMobile: accounts[uIdx].fv += chosen.amount
+            case .lienQuan: profiles[uIdx].quanHuy += chosen.amount
+            case .freeFire: profiles[uIdx].kimCuong += chosen.amount
+            case .fcMobile: profiles[uIdx].fv += chosen.amount
             }
-            saveAccounts()
-            tapHaptic()
-            spinText = "Trúng \(chosen.title)!"
-            spinning = false
+            persistProfiles()
+            pulseHaptic()
+            spinStatus = "Trúng \(chosen.label)!"
+            isSpinning = false
         }
     }
 
-    private var postTab: some View {
+    private var draftSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Đăng bán acc")
+            Text("Tạo mục thử nghiệm")
                 .font(.headline)
-                .foregroundColor(textMain)
+                .foregroundColor(inkPrimary)
 
-            Picker("Game", selection: $postGame) {
-                ForEach(GameKind.allCases) { g in
+            Picker("Danh mục", selection: $draftGame) {
+                ForEach(GameCategory.allCases) { g in
                     Text(g.rawValue).tag(g)
                 }
             }
             .pickerStyle(.segmented)
 
-            TextField("Tên / mô tả acc", text: $postTitle)
-                .foregroundColor(textMain)
+            TextField("Tiêu đề / ghi chú", text: $draftTitle)
+                .foregroundColor(inkPrimary)
                 .padding(12)
-                .background(fieldColor)
+                .background(fieldSurface)
                 .cornerRadius(10)
 
-            TextField("Giá bán (vd: 100000)", text: $postPrice)
+            TextField("Mức giá (vd: 100000)", text: $draftPrice)
                 .keyboardType(.numberPad)
-                .foregroundColor(textMain)
+                .foregroundColor(inkPrimary)
                 .padding(12)
-                .background(fieldColor)
+                .background(fieldSurface)
                 .cornerRadius(10)
 
-            Picker("Cách đăng nhập", selection: $postAuth) {
-                ForEach(AuthModeKind.allCases) { a in
-                    Text(a.rawValue).tag(a)
+            Picker("Kiểu đăng nhập", selection: $draftLogin) {
+                ForEach(LoginType.allCases) { t in
+                    Text(t.rawValue).tag(t)
                 }
             }
             .pickerStyle(.segmented)
 
             Button(action: {
-                tapHaptic()
-                pickerOpen = true
+                pulseHaptic()
+                showPicker = true
             }) {
                 HStack {
                     Image(systemName: "photo.badge.plus")
-                    Text(previewImg == nil ? "Chọn ảnh acc" : "Đổi ảnh acc")
+                    Text(draftPreview == nil ? "Chọn ảnh từ thư viện" : "Đổi ảnh khác")
                 }
                 .font(.subheadline.bold())
                 .foregroundColor(.orange)
                 .frame(maxWidth: .infinity)
                 .frame(height: 44)
-                .background(fieldColor)
+                .background(fieldSurface)
                 .cornerRadius(10)
             }
 
-            if let img = previewImg {
+            if let img = draftPreview {
                 Image(uiImage: img)
                     .resizable()
                     .scaledToFit()
                     .frame(maxWidth: .infinity)
                     .frame(maxHeight: 190)
-                    .background(fieldColor)
+                    .background(fieldSurface)
                     .cornerRadius(12)
             }
 
-            if let msg = postStatus {
+            if let msg = draftNotice {
                 Text(msg)
                     .font(.caption.bold())
                     .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
             }
 
-            Button(action: savePost) {
-                Text("Đăng lên màn chính")
+            Button(action: saveDraft) {
+                Text("Lưu lên màn chính")
                     .font(.headline)
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
@@ -872,12 +872,12 @@ struct ContentView: View {
             }
         }
         .padding(14)
-        .background(cardColor)
+        .background(cardSurface)
         .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(strokeTone, lineWidth: 1))
     }
 
-    private func packImage(_ img: UIImage) -> (UIImage, Data?) {
+    private func shrinkImage(_ img: UIImage) -> (UIImage, Data?) {
         let maxSide: CGFloat = 800
         let s = img.size
         let ratio = min(maxSide / max(s.width, 1), maxSide / max(s.height, 1), 1.0)
@@ -891,120 +891,120 @@ struct ContentView: View {
         return (outImg, data)
     }
 
-    private func savePost() {
-        tapHaptic()
-        guard let u = activeUser else { return }
-        let title = postTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let price = Int(postPrice.filter { $0.isNumber }) ?? 0
+    private func saveDraft() {
+        pulseHaptic()
+        guard let p = currentProfile else { return }
+        let title = draftTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let price = Int(draftPrice.filter { $0.isNumber }) ?? 0
         if title.isEmpty {
-            postStatus = "Nhập tên acc trước."
+            draftNotice = "Nhập tiêu đề trước."
             return
         }
         if price <= 0 {
-            postStatus = "Nhập giá hợp lệ."
+            draftNotice = "Nhập mức giá hợp lệ."
             return
         }
 
-        let item = ShopListing(
+        let item = MarketItem(
             id: UUID(),
-            seller: u.username,
-            game: postGame,
+            owner: p.username,
+            game: draftGame,
             title: title,
             price: price,
-            authType: postAuth,
-            imageData: pickedData
+            loginType: draftLogin,
+            imageData: draftImageData
         )
-        listings.insert(item, at: 0)
-        saveListings()
+        items.insert(item, at: 0)
+        persistItems()
         filterGame = nil
-        postTitle = ""
-        postPrice = ""
-        previewImg = nil
-        pickedData = nil
-        postStatus = nil
-        tabIndex = 0
+        draftTitle = ""
+        draftPrice = ""
+        draftPreview = nil
+        draftImageData = nil
+        draftNotice = nil
+        currentTab = 0
     }
 
-    private var topUpTab: some View {
+    private var walletSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Nạp tiền")
+            Text("Nạp tiền thử nghiệm")
                 .font(.headline)
-                .foregroundColor(textMain)
+                .foregroundColor(inkPrimary)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
-                ForEach(topUpList, id: \.self) { amt in
+                ForEach(topUpPresets, id: \.self) { amt in
                     Button(action: {
-                        tapHaptic()
-                        guard let idx = userIndex else { return }
-                        accounts[idx].balance += amt
-                        saveAccounts()
-                        topUpMsg = "Đã nạp +\(formatMoney(amt))."
+                        pulseHaptic()
+                        guard let idx = activeIndex else { return }
+                        profiles[idx].balance += amt
+                        persistProfiles()
+                        walletNotice = "Đã cộng +\(formatVND(amt))."
                     }) {
-                        Text("+ \(formatMoney(amt))")
+                        Text("+ \(formatVND(amt))")
                             .font(.subheadline.bold())
-                            .foregroundColor(textMain)
+                            .foregroundColor(inkPrimary)
                             .frame(maxWidth: .infinity)
                             .frame(height: 46)
-                            .background(fieldColor)
+                            .background(fieldSurface)
                             .cornerRadius(10)
                     }
                 }
             }
 
-            if let m = topUpMsg {
-                Text(m)
+            if let msg = walletNotice {
+                Text(msg)
                     .font(.caption.bold())
                     .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
             }
         }
         .padding(14)
-        .background(cardColor)
+        .background(cardSurface)
         .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(strokeTone, lineWidth: 1))
     }
 
-    private func settingsTab(user: ShopAccount) -> some View {
+    private func preferencesSection(profile: MemberProfile) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             Text("Cài đặt")
                 .font(.headline)
-                .foregroundColor(textMain)
+                .foregroundColor(inkPrimary)
 
-            Picker("Giao diện", selection: $isDarkMode) {
+            Picker("Nền", selection: $darkTheme) {
                 Text("Nền đen").tag(true)
                 Text("Nền trắng").tag(false)
             }
             .pickerStyle(.segmented)
-            .onChange(of: isDarkMode) { val in
-                tapHaptic()
-                UserDefaults.standard.set(val, forKey: darkThemeKey)
-                settingMsg = val ? "Đã bật nền đen." : "Đã bật nền trắng."
+            .onChange(of: darkTheme) { val in
+                pulseHaptic()
+                UserDefaults.standard.set(val, forKey: darkKey)
+                prefNotice = val ? "Đã bật nền đen." : "Đã bật nền trắng."
             }
 
             Toggle("Hiện tỉ lệ vòng quay", isOn: $showRates)
                 .tint(.orange)
-                .foregroundColor(textMain)
+                .foregroundColor(inkPrimary)
                 .onChange(of: showRates) { val in
-                    UserDefaults.standard.set(val, forKey: showRatesKey)
+                    UserDefaults.standard.set(val, forKey: ratesKey)
                 }
 
-            Toggle("Rung phản hồi", isOn: $hapticOn)
+            Toggle("Rung phản hồi", isOn: $enableHaptic)
                 .tint(.orange)
-                .foregroundColor(textMain)
-                .onChange(of: hapticOn) { val in
+                .foregroundColor(inkPrimary)
+                .onChange(of: enableHaptic) { val in
                     UserDefaults.standard.set(val, forKey: hapticKey)
                 }
 
-            Text("Tài khoản: \(user.username) • Tin đăng: \(listings.count)")
+            Text("Tài khoản: \(profile.username) • Số mục lưu: \(items.count)")
                 .font(.caption)
-                .foregroundColor(textSub)
+                .foregroundColor(inkSecondary)
 
             Button(action: {
-                tapHaptic()
-                listings.removeAll()
-                saveListings()
-                settingMsg = "Đã xóa hết tin đăng."
+                pulseHaptic()
+                items.removeAll()
+                persistItems()
+                prefNotice = "Đã xóa toàn bộ mục lưu."
             }) {
-                Text("Xóa toàn bộ tin đăng")
+                Text("Xóa toàn bộ mục lưu")
                     .font(.subheadline.bold())
                     .foregroundColor(.red)
                     .frame(maxWidth: .infinity)
@@ -1013,55 +1013,55 @@ struct ContentView: View {
                     .cornerRadius(10)
             }
 
-            if let sm = settingMsg {
-                Text(sm)
+            if let msg = prefNotice {
+                Text(msg)
                     .font(.caption.bold())
                     .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
             }
         }
         .padding(14)
-        .background(cardColor)
+        .background(cardSurface)
         .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(strokeTone, lineWidth: 1))
     }
 
-    private func formatMoney(_ v: Int) -> String {
-        let f = NumberFormatter()
-        f.numberStyle = .decimal
-        f.groupingSeparator = "."
-        return "\(f.string(from: NSNumber(value: v)) ?? "\(v)")đ"
+    private func formatVND(_ value: Int) -> String {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.groupingSeparator = "."
+        return "\(formatter.string(from: NSNumber(value: value)) ?? "\(value)")đ"
     }
 
-    private func loadStore() {
-        if let d = UserDefaults.standard.data(forKey: accountsKey),
-           let dec = try? JSONDecoder().decode([ShopAccount].self, from: d) {
-            accounts = dec
+    private func restoreState() {
+        if let d = UserDefaults.standard.data(forKey: profilesKey),
+           let dec = try? JSONDecoder().decode([MemberProfile].self, from: d) {
+            profiles = dec
         }
-        currentUsername = UserDefaults.standard.string(forKey: currentUserKey) ?? ""
-        if let d = UserDefaults.standard.data(forKey: listingsKey),
-           let dec = try? JSONDecoder().decode([ShopListing].self, from: d) {
-            listings = dec
+        activeUser = UserDefaults.standard.string(forKey: activeKey) ?? ""
+        if let d = UserDefaults.standard.data(forKey: itemsKey),
+           let dec = try? JSONDecoder().decode([MarketItem].self, from: d) {
+            items = dec
         }
-        if UserDefaults.standard.object(forKey: darkThemeKey) != nil {
-            isDarkMode = UserDefaults.standard.bool(forKey: darkThemeKey)
+        if UserDefaults.standard.object(forKey: darkKey) != nil {
+            darkTheme = UserDefaults.standard.bool(forKey: darkKey)
         }
-        if UserDefaults.standard.object(forKey: showRatesKey) != nil {
-            showRates = UserDefaults.standard.bool(forKey: showRatesKey)
+        if UserDefaults.standard.object(forKey: ratesKey) != nil {
+            showRates = UserDefaults.standard.bool(forKey: ratesKey)
         }
         if UserDefaults.standard.object(forKey: hapticKey) != nil {
-            hapticOn = UserDefaults.standard.bool(forKey: hapticKey)
+            enableHaptic = UserDefaults.standard.bool(forKey: hapticKey)
         }
     }
 
-    private func saveAccounts() {
-        if let enc = try? JSONEncoder().encode(accounts) {
-            UserDefaults.standard.set(enc, forKey: accountsKey)
+    private func persistProfiles() {
+        if let enc = try? JSONEncoder().encode(profiles) {
+            UserDefaults.standard.set(enc, forKey: profilesKey)
         }
     }
 
-    private func saveListings() {
-        if let enc = try? JSONEncoder().encode(listings) {
-            UserDefaults.standard.set(enc, forKey: listingsKey)
+    private func persistItems() {
+        if let enc = try? JSONEncoder().encode(items) {
+            UserDefaults.standard.set(enc, forKey: itemsKey)
         }
     }
 }
