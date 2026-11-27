@@ -1,7 +1,77 @@
 import SwiftUI
 import UIKit
 
-enum LoginMethod: String, CaseIterable, Identifiable, Codable {
+struct RewardItem: Identifiable, Codable {
+    let id: UUID
+    let title: String
+    let amount: Int
+    let weight: Int
+
+    init(id: UUID = UUID(), title: String, amount: Int, weight: Int) {
+        self.id = id
+        self.title = title
+        self.amount = amount
+        self.weight = max(1, weight)
+    }
+}
+
+enum GameKind: String, CaseIterable, Identifiable, Codable {
+    case lienQuan = "Liên Quân"
+    case freeFire = "Free Fire"
+    case fcMobile = "FC Mobile"
+
+    var id: String { rawValue }
+
+    var cost: Int {
+        switch self {
+        case .lienQuan: return 10_000
+        case .freeFire: return 15_000
+        case .fcMobile: return 20_000
+        }
+    }
+
+    var unit: String {
+        switch self {
+        case .lienQuan: return "QH"
+        case .freeFire: return "KC"
+        case .fcMobile: return "FV"
+        }
+    }
+
+    var rewards: [RewardItem] {
+        switch self {
+        case .lienQuan:
+            return [
+                RewardItem(title: "60 QH", amount: 60, weight: 34),
+                RewardItem(title: "150 QH", amount: 150, weight: 28),
+                RewardItem(title: "300 QH", amount: 300, weight: 19),
+                RewardItem(title: "650 QH", amount: 650, weight: 11),
+                RewardItem(title: "1.200 QH", amount: 1200, weight: 6),
+                RewardItem(title: "2.500 QH", amount: 2500, weight: 2)
+            ]
+        case .freeFire:
+            return [
+                RewardItem(title: "70 KC", amount: 70, weight: 34),
+                RewardItem(title: "140 KC", amount: 140, weight: 28),
+                RewardItem(title: "290 KC", amount: 290, weight: 19),
+                RewardItem(title: "580 KC", amount: 580, weight: 11),
+                RewardItem(title: "1.150 KC", amount: 1150, weight: 6),
+                RewardItem(title: "2.200 KC", amount: 2200, weight: 2)
+            ]
+        case .fcMobile:
+            return [
+                RewardItem(title: "100 FV", amount: 100, weight: 34),
+                RewardItem(title: "200 FV", amount: 200, weight: 28),
+                RewardItem(title: "450 FV", amount: 450, weight: 19),
+                RewardItem(title: "950 FV", amount: 950, weight: 11),
+                RewardItem(title: "1.800 FV", amount: 1800, weight: 6),
+                RewardItem(title: "3.500 FV", amount: 3500, weight: 2)
+            ]
+        }
+    }
+}
+
+enum AuthModeKind: String, CaseIterable, Identifiable, Codable {
     case facebook = "Facebook"
     case google = "Google"
     case account = "Tài khoản"
@@ -9,7 +79,7 @@ enum LoginMethod: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 }
 
-struct UserAccount: Codable, Identifiable {
+struct ShopAccount: Codable, Identifiable {
     let id: UUID
     let username: String
     let password: String
@@ -19,28 +89,41 @@ struct UserAccount: Codable, Identifiable {
     var fv: Int
 }
 
-struct AccountListing: Identifiable, Codable {
+struct ShopListing: Identifiable, Codable {
     let id: UUID
-    let sellerName: String
-    let platform: GamePlatform
+    let seller: String
+    let game: GameKind
     let title: String
     let price: Int
-    let loginMethod: LoginMethod
+    let authType: AuthModeKind
     let imageData: Data?
-    let createdAt: Date
 }
 
-struct PhotoLibraryPicker: UIViewControllerRepresentable {
-    let onPickImage: (UIImage?) -> Void
+struct SliceShape: Shape {
+    let startAngle: Angle
+    let endAngle: Angle
+
+    func path(in rect: CGRect) -> Path {
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let radius = min(rect.width, rect.height) / 2.0
+        var path = Path()
+        path.move(to: center)
+        path.addArc(center: center, radius: radius, startAngle: startAngle, endAngle: endAngle, clockwise: false)
+        path.closeSubpath()
+        return path
+    }
+}
+
+struct ImagePickerSheet: UIViewControllerRepresentable {
+    let onPicked: (UIImage?) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onPickImage: onPickImage)
+        Coordinator(onPicked: onPicked)
     }
 
     func makeUIViewController(context: Context) -> UIImagePickerController {
         let picker = UIImagePickerController()
         picker.sourceType = .photoLibrary
-        picker.allowsEditing = false
         picker.delegate = context.coordinator
         return picker
     }
@@ -48,305 +131,296 @@ struct PhotoLibraryPicker: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
 
     final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
-        let onPickImage: (UIImage?) -> Void
+        let onPicked: (UIImage?) -> Void
 
-        init(onPickImage: @escaping (UIImage?) -> Void) {
-            self.onPickImage = onPickImage
+        init(onPicked: @escaping (UIImage?) -> Void) {
+            self.onPicked = onPicked
         }
 
         func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
-            let img = (info[.originalImage] as? UIImage)
-            onPickImage(img)
+            let img = info[.originalImage] as? UIImage
+            onPicked(img)
             picker.dismiss(animated: true)
         }
 
         func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
-            onPickImage(nil)
+            onPicked(nil)
             picker.dismiss(animated: true)
         }
     }
 }
 
 struct ContentView: View {
-    private let accountsKey = "notebook_shop_accounts_v2"
-    private let currentUserKey = "notebook_shop_current_user_v2"
-    private let listingsKey = "notebook_shop_listings_v2"
-    private let settingsKey = "notebook_shop_settings_v1"
+    private let accountsKey = "shop_accounts_store_v3"
+    private let currentUserKey = "shop_current_user_v3"
+    private let listingsKey = "shop_listings_store_v3"
+    private let darkThemeKey = "shop_dark_theme_v3"
+    private let showRatesKey = "shop_show_rates_v3"
+    private let hapticKey = "shop_haptic_v3"
 
-    @State private var accounts: [UserAccount] = []
-    @State private var activeUsername: String = ""
-    @State private var listings: [AccountListing] = []
-    @State private var settings: NotebookSettings = NotebookSettings()
+    @State private var accounts: [ShopAccount] = []
+    @State private var currentUsername: String = ""
+    @State private var listings: [ShopListing] = []
 
-    @State private var isRegisterTab = false
-    @State private var authUsername = ""
-    @State private var authPassword = ""
-    @State private var authConfirmPassword = ""
-    @State private var authErrorMessage: String?
+    @State private var isDarkMode: Bool = true
+    @State private var showRates: Bool = true
+    @State private var hapticOn: Bool = true
 
-    @State private var selectedSection = 0
-    @State private var showNotice = true
+    @State private var registerMode: Bool = false
+    @State private var inputUser: String = ""
+    @State private var inputPass: String = ""
+    @State private var inputPass2: String = ""
+    @State private var authError: String?
 
-    @State private var newPlatform: GamePlatform = .lienQuan
-    @State private var newTitle = ""
-    @State private var newPriceText = ""
-    @State private var newLoginMethod: LoginMethod = .facebook
-    @State private var showPhotoPicker = false
-    @State private var pickedPreviewImage: UIImage?
-    @State private var newImageData: Data?
-    @State private var postMessage: String?
+    @State private var tabIndex: Int = 0
+    @State private var filterGame: GameKind? = nil
 
-    private let topUpAmounts = [10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
-    @State private var topUpNotice: String?
-    @State private var filterPlatform: GamePlatform? = nil
+    @State private var spinGame: GameKind = .lienQuan
+    @State private var wheelDeg: Double = 0
+    @State private var spinning: Bool = false
+    @State private var spinText: String = "Chọn vòng quay rồi bấm Quay"
 
-    private var isDark: Bool { settings.themeMode == .dark }
-    private var accent: Color { settings.accentChoice.color }
-    private var pageBgTop: Color { isDark ? Color(red: 0.06, green: 0.07, blue: 0.09) : Color(red: 0.99, green: 0.98, blue: 0.96) }
-    private var pageBgBottom: Color { isDark ? Color(red: 0.10, green: 0.11, blue: 0.15) : Color(red: 0.95, green: 0.94, blue: 0.91) }
-    private var cardBg: Color { isDark ? Color(red: 0.14, green: 0.16, blue: 0.21) : Color.white }
-    private var inputBg: Color { isDark ? Color(red: 0.09, green: 0.10, blue: 0.14) : Color(red: 0.97, green: 0.97, blue: 0.96) }
-    private var primaryText: Color { isDark ? .white : Color(red: 0.12, green: 0.12, blue: 0.14) }
-    private var secondaryText: Color { isDark ? Color.white.opacity(0.72) : Color(red: 0.42, green: 0.42, blue: 0.46) }
-    private var borderTone: Color { isDark ? Color.white.opacity(0.11) : Color.black.opacity(0.12) }
-    private var spineColor: Color { isDark ? Color(red: 0.18, green: 0.16, blue: 0.15) : Color(red: 0.20, green: 0.20, blue: 0.22) }
+    @State private var postGame: GameKind = .lienQuan
+    @State private var postTitle: String = ""
+    @State private var postPrice: String = ""
+    @State private var postAuth: AuthModeKind = .facebook
+    @State private var pickerOpen: Bool = false
+    @State private var previewImg: UIImage?
+    @State private var pickedData: Data?
+    @State private var postStatus: String?
 
-    private var currentUserIndex: Int? {
-        accounts.firstIndex { $0.username.caseInsensitiveCompare(activeUsername) == .orderedSame }
+    @State private var topUpMsg: String?
+    @State private var settingMsg: String?
+
+    private let topUpList = [10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
+
+    private var userIndex: Int? {
+        accounts.firstIndex { $0.username.caseInsensitiveCompare(currentUsername) == .orderedSame }
     }
 
-    private var currentUser: UserAccount? {
-        guard let idx = currentUserIndex else { return nil }
+    private var activeUser: ShopAccount? {
+        guard let idx = userIndex else { return nil }
         return accounts[idx]
     }
 
-    private var filteredListings: [AccountListing] {
-        guard let fp = filterPlatform else { return listings }
-        return listings.filter { $0.platform == fp }
+    private var bgColor: Color {
+        isDarkMode ? Color(red: 0.07, green: 0.08, blue: 0.11) : Color(red: 0.97, green: 0.97, blue: 0.96)
     }
 
-    private func haptic() {
-        guard settings.hapticEnabled else { return }
+    private var cardColor: Color {
+        isDarkMode ? Color(red: 0.14, green: 0.16, blue: 0.21) : Color.white
+    }
+
+    private var fieldColor: Color {
+        isDarkMode ? Color(red: 0.09, green: 0.10, blue: 0.14) : Color(red: 0.93, green: 0.94, blue: 0.95)
+    }
+
+    private var textMain: Color {
+        isDarkMode ? .white : Color(red: 0.12, green: 0.12, blue: 0.14)
+    }
+
+    private var textSub: Color {
+        isDarkMode ? Color.white.opacity(0.72) : Color(red: 0.42, green: 0.42, blue: 0.46)
+    }
+
+    private var lineColor: Color {
+        isDarkMode ? Color.white.opacity(0.12) : Color.black.opacity(0.12)
+    }
+
+    private func tapHaptic() {
+        guard hapticOn else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
     }
 
     var body: some View {
         NavigationStack {
             ZStack {
-                notebookBackground
-                if let user = currentUser {
-                    mainNotebookContent(user: user)
-                } else {
-                    authNotebookView
-                }
-            }
-            .navigationTitle(currentUser == nil ? "Sổ Acc & Vòng Quay" : "Sổ Shop • \(currentUser!.username)")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    if currentUser != nil {
-                        Button("Đăng xuất") {
-                            haptic()
-                            activeUsername = ""
-                            UserDefaults.standard.set("", forKey: currentUserKey)
-                            authUsername = ""
-                            authPassword = ""
-                            authConfirmPassword = ""
-                            authErrorMessage = nil
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(accent)
+                bgColor.ignoresSafeArea()
+
+                HStack(spacing: 0) {
+                    Rectangle()
+                        .fill(isDarkMode ? Color(red: 0.22, green: 0.18, blue: 0.14) : Color(red: 0.22, green: 0.22, blue: 0.25))
+                        .frame(width: 10)
+                        .ignoresSafeArea()
+
+                    if let u = activeUser {
+                        mainView(user: u)
+                    } else {
+                        loginView
                     }
                 }
             }
-            .sheet(isPresented: $showPhotoPicker) {
-                PhotoLibraryPicker { img in
+            .navigationTitle(activeUser == nil ? "Sổ Acc & Vòng Quay" : "Sổ • \(activeUser!.username)")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    if activeUser != nil {
+                        Button("Thoát") {
+                            tapHaptic()
+                            currentUsername = ""
+                            UserDefaults.standard.set("", forKey: currentUserKey)
+                            inputPass = ""
+                            authError = nil
+                        }
+                        .foregroundColor(.orange)
+                    }
+                }
+            }
+            .sheet(isPresented: $pickerOpen) {
+                ImagePickerSheet { img in
                     if let img = img {
-                        let compressed = compressUIImage(img)
-                        pickedPreviewImage = compressed.0
-                        newImageData = compressed.1
-                        postMessage = "Đã chọn ảnh acc thành công."
+                        let packed = packImage(img)
+                        previewImg = packed.0
+                        pickedData = packed.1
+                        postStatus = "Đã nhận ảnh acc."
                     }
                 }
             }
             .onAppear {
-                loadInitialData()
+                loadStore()
             }
         }
-        .preferredColorScheme(isDark ? .dark : .light)
+        .preferredColorScheme(isDarkMode ? .dark : .light)
     }
 
-    private var notebookBackground: some View {
-        ZStack(alignment: .leading) {
-            LinearGradient(
-                gradient: Gradient(colors: [pageBgTop, pageBgBottom]),
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-            .ignoresSafeArea()
-
-            Rectangle()
-                .fill(spineColor)
-                .frame(width: 12)
-                .ignoresSafeArea()
-
-            Rectangle()
-                .fill(accent.opacity(0.28))
-                .frame(width: 1.5)
-                .padding(.leading, 30)
-                .ignoresSafeArea()
-        }
-    }
-
-    private var authNotebookView: some View {
+    private var loginView: some View {
         ScrollView {
-            VStack(spacing: 18) {
-                VStack(spacing: 8) {
+            VStack(spacing: 16) {
+                VStack(spacing: 6) {
                     Image(systemName: "book.closed.fill")
-                        .font(.system(size: 40))
-                        .foregroundColor(accent)
-                    Text("Sổ Quản Lý Acc & Vòng Quay")
+                        .font(.system(size: 38))
+                        .foregroundColor(.orange)
+                    Text("Sổ Acc & Vòng Quay")
                         .font(.title2.bold())
-                        .foregroundColor(primaryText)
-                    Text(isRegisterTab ? "Tạo tài khoản mới để lưu số dư & tin đăng" : "Đăng nhập bằng tài khoản đã tạo")
+                        .foregroundColor(textMain)
+                    Text(registerMode ? "Tạo tài khoản mới" : "Đăng nhập tài khoản")
                         .font(.subheadline)
-                        .foregroundColor(secondaryText)
+                        .foregroundColor(textSub)
                 }
-                .padding(.top, 12)
 
-                Picker("Chế độ", selection: $isRegisterTab) {
+                Picker("Chế độ", selection: $registerMode) {
                     Text("Đăng nhập").tag(false)
-                    Text("Tạo tài khoản").tag(true)
+                    Text("Đăng ký").tag(true)
                 }
                 .pickerStyle(.segmented)
-                .padding(4)
-                .background(cardBg)
-                .cornerRadius(12)
 
-                VStack(spacing: 14) {
-                    TextField("Tên tài khoản", text: $authUsername)
+                VStack(spacing: 12) {
+                    TextField("Tên tài khoản", text: $inputUser)
                         .autocapitalization(.none)
                         .disableAutocorrection(true)
-                        .foregroundColor(primaryText)
-                        .padding(14)
-                        .background(inputBg)
-                        .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
+                        .foregroundColor(textMain)
+                        .padding(12)
+                        .background(fieldColor)
+                        .cornerRadius(10)
 
-                    SecureField("Mật khẩu", text: $authPassword)
-                        .foregroundColor(primaryText)
-                        .padding(14)
-                        .background(inputBg)
-                        .cornerRadius(12)
-                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
+                    SecureField("Mật khẩu", text: $inputPass)
+                        .foregroundColor(textMain)
+                        .padding(12)
+                        .background(fieldColor)
+                        .cornerRadius(10)
 
-                    if isRegisterTab {
-                        SecureField("Nhập lại mật khẩu", text: $authConfirmPassword)
-                            .foregroundColor(primaryText)
-                            .padding(14)
-                            .background(inputBg)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
+                    if registerMode {
+                        SecureField("Nhập lại mật khẩu", text: $inputPass2)
+                            .foregroundColor(textMain)
+                            .padding(12)
+                            .background(fieldColor)
+                            .cornerRadius(10)
                     }
 
-                    if let err = authErrorMessage {
+                    if let err = authError {
                         Text(err)
-                            .font(.footnote.weight(.semibold))
+                            .font(.footnote.bold())
                             .foregroundColor(.red)
                             .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Button(action: handleAuthSubmit) {
-                        Text(isRegisterTab ? "Tạo tài khoản & Vào sổ" : "Đăng nhập")
+                    Button(action: submitAuth) {
+                        Text(registerMode ? "Tạo tài khoản" : "Vào sổ")
                             .font(.headline)
                             .foregroundColor(.white)
                             .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(accent)
-                            .cornerRadius(14)
+                            .frame(height: 48)
+                            .background(Color.orange)
+                            .cornerRadius(12)
                     }
                 }
-                .padding(16)
-                .background(cardBg)
-                .cornerRadius(18)
-                .overlay(RoundedRectangle(cornerRadius: 18).stroke(borderTone, lineWidth: 1))
+                .padding(14)
+                .background(cardColor)
+                .cornerRadius(16)
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
             }
-            .padding(.leading, 24)
-            .padding(.trailing, 16)
-            .padding(.vertical, 16)
+            .padding(16)
         }
     }
 
-    private func handleAuthSubmit() {
-        haptic()
-        let cleanUser = authUsername.trimmingCharacters(in: .whitespacesAndNewlines)
-        let cleanPass = authPassword
-        if cleanUser.count < 3 {
-            authErrorMessage = "Tên tài khoản cần ít nhất 3 ký tự."
+    private func submitAuth() {
+        tapHaptic()
+        let u = inputUser.trimmingCharacters(in: .whitespacesAndNewlines)
+        let p = inputPass
+
+        if u.count < 3 {
+            authError = "Tên tài khoản ít nhất 3 ký tự."
             return
         }
-        if cleanPass.count < 4 {
-            authErrorMessage = "Mật khẩu cần ít nhất 4 ký tự."
+        if p.count < 4 {
+            authError = "Mật khẩu ít nhất 4 ký tự."
             return
         }
-        if isRegisterTab {
-            if cleanPass != authConfirmPassword {
-                authErrorMessage = "Mật khẩu nhập lại chưa khớp."
+
+        if registerMode {
+            if p != inputPass2 {
+                authError = "Mật khẩu nhập lại không khớp."
                 return
             }
-            if accounts.contains(where: { $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame }) {
-                authErrorMessage = "Tên tài khoản này đã tồn tại."
+            if accounts.contains(where: { $0.username.caseInsensitiveCompare(u) == .orderedSame }) {
+                authError = "Tài khoản này đã tồn tại."
                 return
             }
-            let created = UserAccount(id: UUID(), username: cleanUser, password: cleanPass, balance: 0, quanHuy: 0, kimCuong: 0, fv: 0)
-            accounts.append(created)
+            let acc = ShopAccount(id: UUID(), username: u, password: p, balance: 0, quanHuy: 0, kimCuong: 0, fv: 0)
+            accounts.append(acc)
             saveAccounts()
-            activeUsername = created.username
-            UserDefaults.standard.set(created.username, forKey: currentUserKey)
-            authErrorMessage = nil
+            currentUsername = acc.username
+            UserDefaults.standard.set(acc.username, forKey: currentUserKey)
+            authError = nil
         } else {
-            guard let matched = accounts.first(where: {
-                $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame && $0.password == cleanPass
+            guard let found = accounts.first(where: {
+                $0.username.caseInsensitiveCompare(u) == .orderedSame && $0.password == p
             }) else {
-                authErrorMessage = "Sai tên tài khoản hoặc mật khẩu."
+                authError = "Sai tên tài khoản hoặc mật khẩu."
                 return
             }
-            activeUsername = matched.username
-            UserDefaults.standard.set(matched.username, forKey: currentUserKey)
-            authErrorMessage = nil
+            currentUsername = found.username
+            UserDefaults.standard.set(found.username, forKey: currentUserKey)
+            authError = nil
         }
     }
 
-    private func mainNotebookContent(user: UserAccount) -> some View {
+    private func mainView(user: ShopAccount) -> some View {
         ScrollView {
-            VStack(spacing: 16) {
-                if settings.showGreetingBanner && showNotice {
-                    HStack(spacing: 10) {
-                        Image(systemName: "bookmark.fill")
-                            .foregroundColor(accent)
-                        Text("Chào \(user.username) • Số dư hiện tại: \(formatVND(user.balance))")
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundColor(primaryText)
-                        Spacer()
-                        Button(action: { showNotice = false }) {
-                            Image(systemName: "xmark")
-                                .font(.footnote.bold())
-                                .foregroundColor(secondaryText)
-                                .frame(width: 28, height: 28)
-                                .background(inputBg)
-                                .clipShape(Circle())
-                        }
+            VStack(spacing: 14) {
+                HStack {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Số dư")
+                            .font(.caption)
+                            .foregroundColor(textSub)
+                        Text(formatMoney(user.balance))
+                            .font(.headline.bold())
+                            .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
                     }
-                    .padding(12)
-                    .background(cardBg)
-                    .cornerRadius(14)
-                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderTone, lineWidth: 1))
+                    Spacer()
+                    HStack(spacing: 8) {
+                        badgeBox(label: "QH", val: user.quanHuy, tint: .blue)
+                        badgeBox(label: "KC", val: user.kimCuong, tint: .teal)
+                        badgeBox(label: "FV", val: user.fv, tint: .orange)
+                    }
                 }
-
-                walletSummaryCard(user: user)
+                .padding(12)
+                .background(cardColor)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(lineColor, lineWidth: 1))
 
                 ScrollView(.horizontal, showsIndicators: false) {
-                    Picker("Trang sổ", selection: $selectedSection) {
+                    Picker("Mục", selection: $tabIndex) {
                         Text("Màn chính").tag(0)
                         Text("Vòng quay").tag(1)
                         Text("Đăng bán").tag(2)
@@ -357,485 +431,108 @@ struct ContentView: View {
                     .frame(minWidth: 380)
                 }
                 .padding(4)
-                .background(cardBg)
+                .background(cardColor)
                 .cornerRadius(12)
 
-                switch selectedSection {
+                switch tabIndex {
                 case 0:
-                    homeListingsView
+                    marketTab
                 case 1:
-                    WheelSpinView(
-                        balance: user.balance,
-                        accent: accent,
-                        cardBg: cardBg,
-                        inputBg: inputBg,
-                        primaryText: primaryText,
-                        secondaryText: secondaryText,
-                        borderTone: borderTone,
-                        isDark: isDark,
-                        showRewardList: settings.showRewardList,
-                        hapticEnabled: settings.hapticEnabled,
-                        formatVND: formatVND,
-                        onSpinComplete: applySpinReward
-                    )
+                    wheelTab(user: user)
                 case 2:
-                    createListingView
+                    postTab
                 case 3:
-                    topUpView
+                    topUpTab
                 default:
-                    SettingsTabView(
-                        settings: $settings,
-                        username: user.username,
-                        listingCount: listings.count,
-                        accent: accent,
-                        cardBg: cardBg,
-                        inputBg: inputBg,
-                        primaryText: primaryText,
-                        secondaryText: secondaryText,
-                        borderTone: borderTone,
-                        onSaveSettings: saveSettings,
-                        onResetSettings: {
-                            settings = NotebookSettings()
-                            showNotice = true
-                            saveSettings()
-                        },
-                        onClearListings: {
-                            listings.removeAll()
-                            saveListings()
-                        }
-                    )
+                    settingsTab(user: user)
                 }
             }
-            .padding(.leading, 24)
-            .padding(.trailing, 16)
-            .padding(.vertical, 16)
+            .padding(14)
         }
     }
 
-    private func applySpinReward(platform: GamePlatform, reward: RewardOption) {
-        guard let idx = currentUserIndex else { return }
-        accounts[idx].balance = max(0, accounts[idx].balance - platform.spinCost)
-        switch platform {
-        case .lienQuan:
-            accounts[idx].quanHuy += reward.amount
-        case .freeFire:
-            accounts[idx].kimCuong += reward.amount
-        case .fcMobile:
-            accounts[idx].fv += reward.amount
+    private func badgeBox(label: String, val: Int, tint: Color) -> some View {
+        VStack(spacing: 1) {
+            Text("\(val)")
+                .font(.caption.bold())
+                .foregroundColor(tint)
+            Text(label)
+                .font(.caption2)
+                .foregroundColor(textSub)
         }
-        saveAccounts()
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(fieldColor)
+        .cornerRadius(8)
     }
 
-    private func walletSummaryCard(user: UserAccount) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+    private var marketTab: some View {
+        let shown: [ShopListing]
+        if let fg = filterGame {
+            shown = listings.filter { $0.game == fg }
+        } else {
+            shown = listings
+        }
+
+        return VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Số dư tài khoản")
-                    .font(.caption.weight(.semibold))
-                    .foregroundColor(secondaryText)
-                Spacer()
-                Text(formatVND(user.balance))
-                    .font(.headline.bold())
-                    .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
-            }
-
-            Divider().background(borderTone)
-
-            HStack(spacing: 8) {
-                resourcePill(label: "Quân Huy", value: "\(user.quanHuy)", tint: Color(red: 0.32, green: 0.65, blue: 1.0))
-                resourcePill(label: "Kim Cương", value: "\(user.kimCuong)", tint: Color(red: 0.20, green: 0.82, blue: 0.78))
-                resourcePill(label: "FV", value: "\(user.fv)", tint: accent)
-            }
-        }
-        .padding(14)
-        .background(cardBg)
-        .cornerRadius(16)
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderTone, lineWidth: 1))
-    }
-
-    private func resourcePill(label: String, value: String, tint: Color) -> some View {
-        VStack(spacing: 3) {
-            Text(value).font(.subheadline.bold()).foregroundColor(tint)
-            Text(label).font(.caption2.weight(.medium)).foregroundColor(secondaryText)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-        .background(inputBg)
-        .cornerRadius(10)
-    }
-
-    private var homeListingsView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Acc đang rao bán (\(filteredListings.count))")
+                Text("Tin rao acc (\(shown.count))")
                     .font(.headline)
-                    .foregroundColor(primaryText)
+                    .foregroundColor(textMain)
                 Spacer()
                 Button("+ Đăng bán") {
-                    haptic()
-                    selectedSection = 2
+                    tapHaptic()
+                    tabIndex = 2
                 }
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(accent)
+                .font(.subheadline.bold())
+                .foregroundColor(.orange)
             }
 
             if !listings.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        filterChip(title: "Tất cả", target: nil)
-                        ForEach(GamePlatform.allCases) { p in
-                            filterChip(title: p.rawValue, target: p)
+                        Button("Tất cả") {
+                            filterGame = nil
+                        }
+                        .font(.caption.bold())
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(filterGame == nil ? Color.orange : cardColor)
+                        .foregroundColor(filterGame == nil ? .white : textMain)
+                        .cornerRadius(12)
+
+                        ForEach(GameKind.allCases) { g in
+                            Button(g.rawValue) {
+                                filterGame = g
+                            }
+                            .font(.caption.bold())
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                            .background(filterGame == g ? Color.orange : cardColor)
+                            .foregroundColor(filterGame == g ? .white : textMain)
+                            .cornerRadius(12)
                         }
                     }
                 }
             }
 
-            if filteredListings.isEmpty {
-                VStack(spacing: 10) {
+            if shown.isEmpty {
+                VStack(spacing: 8) {
                     Image(systemName: "photo.on.rectangle")
-                        .font(.largeTitle)
-                        .foregroundColor(accent.opacity(0.85))
-                    Text("Chưa có tin đăng acc nào")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(primaryText)
-                    Text("Chuyển sang mục Đăng bán để chọn ảnh acc, nhập giá và cách đăng nhập.")
+                        .font(.title)
+                        .foregroundColor(.orange)
+                    Text("Chưa có acc nào")
+                        .font(.subheadline.bold())
+                        .foregroundColor(textMain)
+                    Text("Vào mục Đăng bán để chọn ảnh và đăng tin.")
                         .font(.caption)
-                        .foregroundColor(secondaryText)
-                        .multilineTextAlignment(.center)
+                        .foregroundColor(textSub)
                 }
                 .frame(maxWidth: .infinity)
                 .padding(24)
-                .background(cardBg)
+                .background(cardColor)
                 .cornerRadius(16)
-                .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderTone, lineWidth: 1))
             } else {
-                ForEach(filteredListings) { item in
+                ForEach(shown) { item in
                     VStack(alignment: .leading, spacing: 10) {
-                        if let data = item.imageData, let uiImg = UIImage(data: data) {
-                            Image(uiImage: uiImg)
-                                .resizable()
-                                .scaledToFit()
-                                .frame(maxWidth: .infinity)
-                                .frame(maxHeight: 230)
-                                .background(inputBg)
-                                .cornerRadius(12)
-                        } else {
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(inputBg)
-                                .frame(height: 140)
-                                .overlay(
-                                    VStack(spacing: 6) {
-                                        Image(systemName: "gamecontroller.fill").font(.title2).foregroundColor(accent)
-                                        Text(item.platform.rawValue).font(.caption.bold()).foregroundColor(primaryText.opacity(0.85))
-                                    }
-                                )
-                        }
-
-                        HStack(alignment: .top) {
-                            VStack(alignment: .leading, spacing: 6) {
-                                Text(item.title).font(.headline).foregroundColor(primaryText)
-                                HStack(spacing: 8) {
-                                    Text(item.platform.rawValue)
-                                        .font(.caption.bold())
-                                        .foregroundColor(primaryText)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(inputBg)
-                                        .cornerRadius(10)
-                                    Text("Đăng nhập: \(item.loginMethod.rawValue)")
-                                        .font(.caption.weight(.semibold))
-                                        .foregroundColor(Color(red: 0.35, green: 0.68, blue: 1.0))
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 4)
-                                        .background(Color.blue.opacity(0.16))
-                                        .cornerRadius(10)
-                                }
-                            }
-                            Spacer()
-                            Text(formatVND(item.price)).font(.headline.bold()).foregroundColor(accent)
-                        }
-
-                        HStack {
-                            Text("Người đăng: \(item.sellerName)").font(.caption).foregroundColor(secondaryText)
-                            Spacer()
-                            if item.sellerName.caseInsensitiveCompare(activeUsername) == .orderedSame {
-                                Button("Xóa tin") {
-                                    haptic()
-                                    listings.removeAll { $0.id == item.id }
-                                    saveListings()
-                                }
-                                .font(.caption.bold())
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(Color.red.opacity(0.16))
-                                .foregroundColor(.red)
-                                .cornerRadius(16)
-                            }
-                            Button("Mua thử") {
-                                haptic()
-                                guard let idx = currentUserIndex else { return }
-                                if accounts[idx].balance >= item.price {
-                                    accounts[idx].balance -= item.price
-                                    saveAccounts()
-                                    listings.removeAll { $0.id == item.id }
-                                    saveListings()
-                                } else {
-                                    showNotice = true
-                                }
-                            }
-                            .font(.caption.bold())
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 8)
-                            .background(accent)
-                            .foregroundColor(.white)
-                            .cornerRadius(16)
-                        }
-                    }
-                    .padding(14)
-                    .background(cardBg)
-                    .cornerRadius(16)
-                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderTone, lineWidth: 1))
-                }
-            }
-        }
-    }
-
-    private func filterChip(title: String, target: GamePlatform?) -> some View {
-        let active = filterPlatform == target
-        return Button(action: {
-            haptic()
-            filterPlatform = target
-        }) {
-            Text(title)
-                .font(.caption.bold())
-                .padding(.horizontal, 12)
-                .padding(.vertical, 6)
-                .background(active ? accent : cardBg)
-                .foregroundColor(active ? .white : primaryText)
-                .cornerRadius(14)
-                .overlay(RoundedRectangle(cornerRadius: 14).stroke(active ? accent : borderTone, lineWidth: 1))
-        }
-    }
-
-    private var createListingView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Đăng tin bán acc lên màn hình chính").font(.headline).foregroundColor(primaryText)
-
-            Picker("Nền tảng", selection: $newPlatform) {
-                ForEach(GamePlatform.allCases) { p in Text(p.rawValue).tag(p) }
-            }
-            .pickerStyle(.segmented)
-
-            TextField("Tên / mô tả acc (vd: Acc rank cao, nhiều skin)", text: $newTitle)
-                .foregroundColor(primaryText)
-                .padding(12)
-                .background(inputBg)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
-
-            TextField("Giá tiền cần bán (vd: 150000)", text: $newPriceText)
-                .keyboardType(.numberPad)
-                .foregroundColor(primaryText)
-                .padding(12)
-                .background(inputBg)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Cách thức đăng nhập").font(.subheadline.weight(.semibold)).foregroundColor(primaryText)
-                Picker("Cách đăng nhập", selection: $newLoginMethod) {
-                    ForEach(LoginMethod.allCases) { m in Text(m.rawValue).tag(m) }
-                }
-                .pickerStyle(.segmented)
-            }
-
-            Button(action: {
-                haptic()
-                showPhotoPicker = true
-            }) {
-                HStack {
-                    Image(systemName: "photo.badge.plus")
-                    Text(pickedPreviewImage == nil ? "Chọn ảnh acc từ thư viện" : "Đổi ảnh acc khác").fontWeight(.semibold)
-                }
-                .frame(maxWidth: .infinity)
-                .frame(height: 46)
-                .background(inputBg)
-                .foregroundColor(accent)
-                .cornerRadius(12)
-                .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
-            }
-
-            if let previewImg = pickedPreviewImage {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("Ảnh acc đã chọn")
-                        .font(.caption.bold())
-                        .foregroundColor(secondaryText)
-
-                    Image(uiImage: previewImg)
-                        .resizable()
-                        .scaledToFit()
-                        .frame(maxWidth: .infinity)
-                        .frame(maxHeight: 200)
-                        .background(inputBg)
-                        .cornerRadius(12)
-
-                    Button(role: .destructive, action: {
-                        haptic()
-                        pickedPreviewImage = nil
-                        newImageData = nil
-                        postMessage = "Đã xóa ảnh đã chọn."
-                    }) {
-                        Text("Bỏ ảnh này")
-                            .font(.caption.bold())
-                    }
-                }
-            }
-
-            if let msg = postMessage {
-                Text(msg).font(.footnote.weight(.semibold)).foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
-            }
-
-            Button(action: submitListing) {
-                Text("Đăng lên màn hình chính")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(accent)
-                    .cornerRadius(14)
-            }
-        }
-        .padding(14)
-        .background(cardBg)
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(borderTone, lineWidth: 1))
-    }
-
-    private func compressUIImage(_ img: UIImage) -> (UIImage, Data?) {
-        let maxSide: CGFloat = 800
-        let size = img.size
-        let ratio = min(maxSide / max(size.width, 1), maxSide / max(size.height, 1), 1.0)
-        let targetSize = CGSize(width: max(1, size.width * ratio), height: max(1, size.height * ratio))
-
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
-        let resized = renderer.image { _ in
-            img.draw(in: CGRect(origin: .zero, size: targetSize))
-        }
-        let jpeg = resized.jpegData(compressionQuality: 0.65)
-        let finalImg = jpeg.flatMap { UIImage(data: $0) } ?? resized
-        return (finalImg, jpeg)
-    }
-
-    private func submitListing() {
-        haptic()
-        guard let user = currentUser else { return }
-        let cleanTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let price = Int(newPriceText.filter { $0.isNumber }) ?? 0
-        if cleanTitle.isEmpty {
-            postMessage = "Nhập tên hoặc mô tả acc trước khi đăng."
-            return
-        }
-        if price <= 0 {
-            postMessage = "Nhập giá tiền bán hợp lệ lớn hơn 0."
-            return
-        }
-        let item = AccountListing(
-            id: UUID(),
-            sellerName: user.username,
-            platform: newPlatform,
-            title: cleanTitle,
-            price: price,
-            loginMethod: newLoginMethod,
-            imageData: newImageData,
-            createdAt: Date()
-        )
-        listings.insert(item, at: 0)
-        saveListings()
-        filterPlatform = nil
-        newTitle = ""
-        newPriceText = ""
-        pickedPreviewImage = nil
-        newImageData = nil
-        postMessage = "Đã đăng acc lên màn hình chính."
-        selectedSection = 0
-    }
-
-    private var topUpView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Nạp tiền vào tài khoản").font(.headline).foregroundColor(primaryText)
-            Text("Chọn mệnh giá để cộng trực tiếp vào số dư tài khoản đang đăng nhập.")
-                .font(.footnote)
-                .foregroundColor(secondaryText)
-
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(topUpAmounts, id: \.self) { amount in
-                    Button(action: {
-                        haptic()
-                        guard let idx = currentUserIndex else { return }
-                        accounts[idx].balance += amount
-                        saveAccounts()
-                        topUpNotice = "Đã cộng \(formatVND(amount)) vào tài khoản \(accounts[idx].username)."
-                    }) {
-                        Text("+ \(formatVND(amount))")
-                            .font(.subheadline.bold())
-                            .foregroundColor(primaryText)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: 50)
-                            .background(inputBg)
-                            .cornerRadius(12)
-                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
-                    }
-                }
-            }
-
-            if let notice = topUpNotice {
-                Text(notice).font(.footnote.weight(.semibold)).foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
-            }
-        }
-        .padding(14)
-        .background(cardBg)
-        .cornerRadius(18)
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(borderTone, lineWidth: 1))
-    }
-
-    private func formatVND(_ value: Int) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.groupingSeparator = "."
-        let numStr = formatter.string(from: NSNumber(value: value)) ?? "\(value)"
-        return "\(numStr)đ"
-    }
-
-    private func loadInitialData() {
-        if let data = UserDefaults.standard.data(forKey: accountsKey),
-           let decoded = try? JSONDecoder().decode([UserAccount].self, from: data) {
-            accounts = decoded
-        }
-        activeUsername = UserDefaults.standard.string(forKey: currentUserKey) ?? ""
-        if let data = UserDefaults.standard.data(forKey: listingsKey),
-           let decoded = try? JSONDecoder().decode([AccountListing].self, from: data) {
-            listings = decoded
-        }
-        if let data = UserDefaults.standard.data(forKey: settingsKey),
-           let decoded = try? JSONDecoder().decode(NotebookSettings.self, from: data) {
-            settings = decoded
-        }
-    }
-
-    private func saveAccounts() {
-        if let encoded = try? JSONEncoder().encode(accounts) {
-            UserDefaults.standard.set(encoded, forKey: accountsKey)
-        }
-    }
-
-    private func saveListings() {
-        if let encoded = try? JSONEncoder().encode(listings) {
-            UserDefaults.standard.set(encoded, forKey: listingsKey)
-        }
-    }
-
-    private func saveSettings() {
-        if let encoded = try? JSONEncoder().encode(settings) {
-            UserDefaults.standard.set(encoded, forKey: settingsKey)
-        }
-    }
-}
+                        if
