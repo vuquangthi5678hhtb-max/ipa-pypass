@@ -535,4 +535,533 @@ struct ContentView: View {
             } else {
                 ForEach(shown) { item in
                     VStack(alignment: .leading, spacing: 10) {
-                        if
+                        if let d = item.imageData, let ui = UIImage(data: d) {
+                            Image(uiImage: ui)
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: .infinity)
+                                .frame(maxHeight: 220)
+                                .background(fieldColor)
+                                .cornerRadius(12)
+                        } else {
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(fieldColor)
+                                .frame(height: 120)
+                                .overlay(Text(item.game.rawValue).foregroundColor(textSub))
+                        }
+
+                        HStack(alignment: .top) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(item.title)
+                                    .font(.headline)
+                                    .foregroundColor(textMain)
+                                Text("\(item.game.rawValue) • Đăng nhập: \(item.authType.rawValue)")
+                                    .font(.caption)
+                                    .foregroundColor(textSub)
+                            }
+                            Spacer()
+                            Text(formatMoney(item.price))
+                                .font(.headline.bold())
+                                .foregroundColor(.orange)
+                        }
+
+                        HStack {
+                            Text("Bởi \(item.seller)")
+                                .font(.caption)
+                                .foregroundColor(textSub)
+                            Spacer()
+                            if item.seller.caseInsensitiveCompare(currentUsername) == .orderedSame {
+                                Button("Xóa") {
+                                    tapHaptic()
+                                    listings.removeAll { $0.id == item.id }
+                                    saveListings()
+                                }
+                                .font(.caption.bold())
+                                .foregroundColor(.red)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 6)
+                                .background(Color.red.opacity(0.14))
+                                .cornerRadius(12)
+                            }
+                            Button("Mua") {
+                                tapHaptic()
+                                guard let idx = userIndex else { return }
+                                if accounts[idx].balance >= item.price {
+                                    accounts[idx].balance -= item.price
+                                    saveAccounts()
+                                    listings.removeAll { $0.id == item.id }
+                                    saveListings()
+                                }
+                            }
+                            .font(.caption.bold())
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 6)
+                            .background(Color.orange)
+                            .cornerRadius(12)
+                        }
+                    }
+                    .padding(12)
+                    .background(cardColor)
+                    .cornerRadius(16)
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+                }
+            }
+        }
+    }
+
+    private func sliceTint(_ i: Int) -> Color {
+        let arr: [Color] = [
+            Color(red: 0.22, green: 0.42, blue: 0.78),
+            Color(red: 0.16, green: 0.62, blue: 0.56),
+            Color(red: 0.78, green: 0.42, blue: 0.16),
+            Color(red: 0.42, green: 0.28, blue: 0.74),
+            Color(red: 0.20, green: 0.54, blue: 0.86),
+            Color(red: 0.74, green: 0.22, blue: 0.36)
+        ]
+        return arr[i % arr.count]
+    }
+
+    private func wheelTab(user: ShopAccount) -> some View {
+        let items = spinGame.rewards
+        let step = 360.0 / Double(items.count)
+
+        return VStack(spacing: 14) {
+            VStack(spacing: 8) {
+                ForEach(GameKind.allCases) { g in
+                    let sel = spinGame == g
+                    Button(action: {
+                        tapHaptic()
+                        spinGame = g
+                        spinText = "Vòng \(g.rawValue) • \(formatMoney(g.cost))/lượt"
+                    }) {
+                        HStack {
+                            Text(g.rawValue)
+                                .font(.subheadline.bold())
+                                .foregroundColor(textMain)
+                            Spacer()
+                            Text("\(formatMoney(g.cost))/lượt")
+                                .font(.caption.bold())
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 5)
+                                .background(sel ? Color.orange : fieldColor)
+                                .foregroundColor(sel ? .white : textMain)
+                                .cornerRadius(10)
+                        }
+                        .padding(10)
+                        .background(sel ? Color.orange.opacity(0.14) : fieldColor)
+                        .cornerRadius(12)
+                    }
+                    .disabled(spinning)
+                }
+            }
+
+            ZStack {
+                ZStack {
+                    ForEach(0..<items.count, id: \.self) { i in
+                        let a0 = -90.0 + Double(i) * step - step / 2.0
+                        let a1 = a0 + step
+                        let mid = (-90.0 + Double(i) * step) * Double.pi / 180.0
+                        let rad: CGFloat = 74
+
+                        SliceShape(startAngle: .degrees(a0), endAngle: .degrees(a1))
+                            .fill(sliceTint(i))
+                            .overlay(SliceShape(startAngle: .degrees(a0), endAngle: .degrees(a1)).stroke(Color.white.opacity(0.85), lineWidth: 1.5))
+
+                        Text(items[i].title)
+                            .font(.caption2.bold())
+                            .foregroundColor(.white)
+                            .offset(x: cos(mid) * rad, y: sin(mid) * rad)
+                    }
+                }
+                .frame(width: 230, height: 230)
+                .clipShape(Circle())
+                .overlay(Circle().stroke(Color.white, lineWidth: 3))
+                .rotationEffect(.degrees(wheelDeg))
+
+                Circle()
+                    .fill(cardColor)
+                    .frame(width: 68, height: 68)
+                    .overlay(Circle().stroke(Color.orange, lineWidth: 2))
+
+                Text(spinGame.unit)
+                    .font(.caption.bold())
+                    .foregroundColor(textMain)
+            }
+            .overlay(alignment: .top) {
+                Image(systemName: "arrowtriangle.down.fill")
+                    .font(.title2)
+                    .foregroundColor(.red)
+                    .offset(y: -12)
+            }
+            .padding(.top, 10)
+
+            Text(spinText)
+                .font(.subheadline.bold())
+                .foregroundColor(textMain)
+                .multilineTextAlignment(.center)
+
+            if showRates {
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    ForEach(items) { r in
+                        HStack {
+                            Text(r.title)
+                                .font(.caption.bold())
+                                .foregroundColor(textMain)
+                            Spacer()
+                            Text("\(r.weight)%")
+                                .font(.caption2.bold())
+                                .foregroundColor(.orange)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(fieldColor)
+                        .cornerRadius(8)
+                    }
+                }
+            }
+
+            Button(action: runSpin) {
+                Text(spinning ? "Đang quay..." : "Quay \(spinGame.rawValue) (-\(formatMoney(spinGame.cost)))")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(spinning ? Color.orange.opacity(0.6) : Color.orange)
+                    .cornerRadius(12)
+            }
+            .disabled(spinning)
+        }
+        .padding(14)
+        .background(cardColor)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+    }
+
+    private func runSpin() {
+        guard let idx = userIndex, !spinning else { return }
+        tapHaptic()
+
+        let cost = spinGame.cost
+        if accounts[idx].balance < cost {
+            spinText = "Không đủ số dư (\(formatMoney(cost))). Qua mục Nạp tiền."
+            return
+        }
+
+        accounts[idx].balance -= cost
+        saveAccounts()
+
+        let pool = spinGame.rewards
+        let totalW = pool.reduce(0) { $0 + $1.weight }
+        let roll = Int.random(in: 1...max(1, totalW))
+        var sum = 0
+        var chosenIdx = 0
+        for (i, r) in pool.enumerated() {
+            sum += r.weight
+            if roll <= sum {
+                chosenIdx = i
+                break
+            }
+        }
+        let chosen = pool[chosenIdx]
+
+        let step = 360.0 / Double(pool.count)
+        let targetDeg = Double(chosenIdx) * step
+        let curMod = wheelDeg.truncatingRemainder(dividingBy: 360.0)
+        var diff = ((360.0 - targetDeg).truncatingRemainder(dividingBy: 360.0)) - curMod
+        if diff < 0 { diff += 360.0 }
+        let spinTotal = 1800.0 + diff + Double.random(in: -step * 0.2 ... step * 0.2)
+
+        spinning = true
+        spinText = "Đang quay \(spinGame.rawValue)..."
+
+        withAnimation(.timingCurve(0.14, 0.88, 0.25, 1.0, duration: 2.2)) {
+            wheelDeg += spinTotal
+        }
+
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.25) {
+            guard let uIdx = userIndex else {
+                spinning = false
+                return
+            }
+            switch spinGame {
+            case .lienQuan: accounts[uIdx].quanHuy += chosen.amount
+            case .freeFire: accounts[uIdx].kimCuong += chosen.amount
+            case .fcMobile: accounts[uIdx].fv += chosen.amount
+            }
+            saveAccounts()
+            tapHaptic()
+            spinText = "Trúng \(chosen.title)!"
+            spinning = false
+        }
+    }
+
+    private var postTab: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Đăng bán acc")
+                .font(.headline)
+                .foregroundColor(textMain)
+
+            Picker("Game", selection: $postGame) {
+                ForEach(GameKind.allCases) { g in
+                    Text(g.rawValue).tag(g)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            TextField("Tên / mô tả acc", text: $postTitle)
+                .foregroundColor(textMain)
+                .padding(12)
+                .background(fieldColor)
+                .cornerRadius(10)
+
+            TextField("Giá bán (vd: 100000)", text: $postPrice)
+                .keyboardType(.numberPad)
+                .foregroundColor(textMain)
+                .padding(12)
+                .background(fieldColor)
+                .cornerRadius(10)
+
+            Picker("Cách đăng nhập", selection: $postAuth) {
+                ForEach(AuthModeKind.allCases) { a in
+                    Text(a.rawValue).tag(a)
+                }
+            }
+            .pickerStyle(.segmented)
+
+            Button(action: {
+                tapHaptic()
+                pickerOpen = true
+            }) {
+                HStack {
+                    Image(systemName: "photo.badge.plus")
+                    Text(previewImg == nil ? "Chọn ảnh acc" : "Đổi ảnh acc")
+                }
+                .font(.subheadline.bold())
+                .foregroundColor(.orange)
+                .frame(maxWidth: .infinity)
+                .frame(height: 44)
+                .background(fieldColor)
+                .cornerRadius(10)
+            }
+
+            if let img = previewImg {
+                Image(uiImage: img)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .frame(maxHeight: 190)
+                    .background(fieldColor)
+                    .cornerRadius(12)
+            }
+
+            if let msg = postStatus {
+                Text(msg)
+                    .font(.caption.bold())
+                    .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
+            }
+
+            Button(action: savePost) {
+                Text("Đăng lên màn chính")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.orange)
+                    .cornerRadius(12)
+            }
+        }
+        .padding(14)
+        .background(cardColor)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+    }
+
+    private func packImage(_ img: UIImage) -> (UIImage, Data?) {
+        let maxSide: CGFloat = 800
+        let s = img.size
+        let ratio = min(maxSide / max(s.width, 1), maxSide / max(s.height, 1), 1.0)
+        let target = CGSize(width: max(1, s.width * ratio), height: max(1, s.height * ratio))
+        let renderer = UIGraphicsImageRenderer(size: target)
+        let small = renderer.image { _ in
+            img.draw(in: CGRect(origin: .zero, size: target))
+        }
+        let data = small.jpegData(compressionQuality: 0.65)
+        let outImg = data.flatMap { UIImage(data: $0) } ?? small
+        return (outImg, data)
+    }
+
+    private func savePost() {
+        tapHaptic()
+        guard let u = activeUser else { return }
+        let title = postTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        let price = Int(postPrice.filter { $0.isNumber }) ?? 0
+        if title.isEmpty {
+            postStatus = "Nhập tên acc trước."
+            return
+        }
+        if price <= 0 {
+            postStatus = "Nhập giá hợp lệ."
+            return
+        }
+
+        let item = ShopListing(
+            id: UUID(),
+            seller: u.username,
+            game: postGame,
+            title: title,
+            price: price,
+            authType: postAuth,
+            imageData: pickedData
+        )
+        listings.insert(item, at: 0)
+        saveListings()
+        filterGame = nil
+        postTitle = ""
+        postPrice = ""
+        previewImg = nil
+        pickedData = nil
+        postStatus = nil
+        tabIndex = 0
+    }
+
+    private var topUpTab: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Nạp tiền")
+                .font(.headline)
+                .foregroundColor(textMain)
+
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
+                ForEach(topUpList, id: \.self) { amt in
+                    Button(action: {
+                        tapHaptic()
+                        guard let idx = userIndex else { return }
+                        accounts[idx].balance += amt
+                        saveAccounts()
+                        topUpMsg = "Đã nạp +\(formatMoney(amt))."
+                    }) {
+                        Text("+ \(formatMoney(amt))")
+                            .font(.subheadline.bold())
+                            .foregroundColor(textMain)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 46)
+                            .background(fieldColor)
+                            .cornerRadius(10)
+                    }
+                }
+            }
+
+            if let m = topUpMsg {
+                Text(m)
+                    .font(.caption.bold())
+                    .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
+            }
+        }
+        .padding(14)
+        .background(cardColor)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+    }
+
+    private func settingsTab(user: ShopAccount) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Cài đặt")
+                .font(.headline)
+                .foregroundColor(textMain)
+
+            Picker("Giao diện", selection: $isDarkMode) {
+                Text("Nền đen").tag(true)
+                Text("Nền trắng").tag(false)
+            }
+            .pickerStyle(.segmented)
+            .onChange(of: isDarkMode) { val in
+                tapHaptic()
+                UserDefaults.standard.set(val, forKey: darkThemeKey)
+                settingMsg = val ? "Đã bật nền đen." : "Đã bật nền trắng."
+            }
+
+            Toggle("Hiện tỉ lệ vòng quay", isOn: $showRates)
+                .tint(.orange)
+                .foregroundColor(textMain)
+                .onChange(of: showRates) { val in
+                    UserDefaults.standard.set(val, forKey: showRatesKey)
+                }
+
+            Toggle("Rung phản hồi", isOn: $hapticOn)
+                .tint(.orange)
+                .foregroundColor(textMain)
+                .onChange(of: hapticOn) { val in
+                    UserDefaults.standard.set(val, forKey: hapticKey)
+                }
+
+            Text("Tài khoản: \(user.username) • Tin đăng: \(listings.count)")
+                .font(.caption)
+                .foregroundColor(textSub)
+
+            Button(action: {
+                tapHaptic()
+                listings.removeAll()
+                saveListings()
+                settingMsg = "Đã xóa hết tin đăng."
+            }) {
+                Text("Xóa toàn bộ tin đăng")
+                    .font(.subheadline.bold())
+                    .foregroundColor(.red)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 44)
+                    .background(Color.red.opacity(0.14))
+                    .cornerRadius(10)
+            }
+
+            if let sm = settingMsg {
+                Text(sm)
+                    .font(.caption.bold())
+                    .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
+            }
+        }
+        .padding(14)
+        .background(cardColor)
+        .cornerRadius(16)
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(lineColor, lineWidth: 1))
+    }
+
+    private func formatMoney(_ v: Int) -> String {
+        let f = NumberFormatter()
+        f.numberStyle = .decimal
+        f.groupingSeparator = "."
+        return "\(f.string(from: NSNumber(value: v)) ?? "\(v)")đ"
+    }
+
+    private func loadStore() {
+        if let d = UserDefaults.standard.data(forKey: accountsKey),
+           let dec = try? JSONDecoder().decode([ShopAccount].self, from: d) {
+            accounts = dec
+        }
+        currentUsername = UserDefaults.standard.string(forKey: currentUserKey) ?? ""
+        if let d = UserDefaults.standard.data(forKey: listingsKey),
+           let dec = try? JSONDecoder().decode([ShopListing].self, from: d) {
+            listings = dec
+        }
+        if UserDefaults.standard.object(forKey: darkThemeKey) != nil {
+            isDarkMode = UserDefaults.standard.bool(forKey: darkThemeKey)
+        }
+        if UserDefaults.standard.object(forKey: showRatesKey) != nil {
+            showRates = UserDefaults.standard.bool(forKey: showRatesKey)
+        }
+        if UserDefaults.standard.object(forKey: hapticKey) != nil {
+            hapticOn = UserDefaults.standard.bool(forKey: hapticKey)
+        }
+    }
+
+    private func saveAccounts() {
+        if let enc = try? JSONEncoder().encode(accounts) {
+            UserDefaults.standard.set(enc, forKey: accountsKey)
+        }
+    }
+
+    private func saveListings() {
+        if let enc = try? JSONEncoder().encode(listings) {
+            UserDefaults.standard.set(enc, forKey: listingsKey)
+        }
+    }
+}
