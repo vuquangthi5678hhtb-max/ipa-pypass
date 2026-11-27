@@ -155,15 +155,17 @@ struct ContentView: View {
     private let activeKey = "lab_notebook_active_v1"
     private let itemsKey = "lab_notebook_items_v1"
     private let darkKey = "lab_notebook_dark_v1"
-    private let ratesKey = "lab_notebook_rates_v1"
     private let hapticKey = "lab_notebook_haptic_v1"
+
+    private let adminBankName = "MB Bank"
+    private let adminAccountNumber = "0987654321"
+    private let adminAccountHolder = "PHAM NGOC HUNG ANH"
 
     @State private var profiles: [MemberProfile] = []
     @State private var activeUser: String = ""
     @State private var items: [MarketItem] = []
 
     @State private var darkTheme: Bool = true
-    @State private var showRates: Bool = true
     @State private var enableHaptic: Bool = true
 
     @State private var isSignUp: Bool = false
@@ -189,6 +191,9 @@ struct ContentView: View {
     @State private var draftImageData: Data?
     @State private var draftNotice: String?
 
+    @State private var selectedTopUpAmount: Int = 50_000
+    @State private var customTopUpInput: String = ""
+    @State private var showTransferCard: Bool = false
     @State private var walletNotice: String?
     @State private var prefNotice: String?
 
@@ -201,6 +206,16 @@ struct ContentView: View {
     private var currentProfile: MemberProfile? {
         guard let idx = activeIndex else { return nil }
         return profiles[idx]
+    }
+
+    private var effectiveTopUpAmount: Int {
+        let digits = Int(customTopUpInput.filter { $0.isNumber }) ?? 0
+        return digits > 0 ? digits : selectedTopUpAmount
+    }
+
+    private var transferMemo: String {
+        let cleanUser = activeUser.uppercased().replacingOccurrences(of: " ", with: "")
+        return "NAP \(cleanUser) \(effectiveTopUpAmount)"
     }
 
     private var surfaceBg: Color {
@@ -230,6 +245,12 @@ struct ContentView: View {
     private func pulseHaptic() {
         guard enableHaptic else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
+    private func copyToClipboard(_ text: String, label: String) {
+        UIPasteboard.general.string = text
+        pulseHaptic()
+        walletNotice = "Đã sao chép \(label)."
     }
 
     var body: some View {
@@ -701,26 +722,6 @@ struct ContentView: View {
                 .foregroundColor(inkPrimary)
                 .multilineTextAlignment(.center)
 
-            if showRates {
-                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                    ForEach(list) { r in
-                        HStack {
-                            Text(r.label)
-                                .font(.caption.bold())
-                                .foregroundColor(inkPrimary)
-                            Spacer()
-                            Text("\(r.weight)%")
-                                .font(.caption2.bold())
-                                .foregroundColor(.orange)
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .background(fieldSurface)
-                        .cornerRadius(8)
-                    }
-                }
-            }
-
             Button(action: triggerSpin) {
                 Text(isSpinning ? "Đang quay..." : "Quay \(spinGame.rawValue) (-\(formatVND(spinGame.cost)))")
                     .font(.headline)
@@ -926,29 +927,109 @@ struct ContentView: View {
     }
 
     private var walletSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Nạp tiền thử nghiệm")
+        VStack(alignment: .leading, spacing: 14) {
+            Text("Nạp tiền chuyển khoản")
                 .font(.headline)
                 .foregroundColor(inkPrimary)
 
+            Text("Chọn mệnh giá hoặc nhập số tiền muốn nạp, sau đó mở bảng thông tin chuyển khoản.")
+                .font(.caption)
+                .foregroundColor(inkSecondary)
+
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
                 ForEach(topUpPresets, id: \.self) { amt in
+                    let active = effectiveTopUpAmount == amt && customTopUpInput.isEmpty
+                    Button(action: {
+                        pulseHaptic()
+                        selectedTopUpAmount = amt
+                        customTopUpInput = ""
+                        showTransferCard = true
+                        walletNotice = "Đã chọn mức nạp \(formatVND(amt))."
+                    }) {
+                        Text(formatVND(amt))
+                            .font(.subheadline.bold())
+                            .foregroundColor(active ? .white : inkPrimary)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 44)
+                            .background(active ? Color.orange : fieldSurface)
+                            .cornerRadius(10)
+                            .overlay(RoundedRectangle(cornerRadius: 10).stroke(active ? Color.orange : strokeTone, lineWidth: 1))
+                    }
+                }
+            }
+
+            TextField("Hoặc nhập số tiền khác (vd: 150000)", text: $customTopUpInput)
+                .keyboardType(.numberPad)
+                .foregroundColor(inkPrimary)
+                .padding(12)
+                .background(fieldSurface)
+                .cornerRadius(10)
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(strokeTone, lineWidth: 1))
+                .onChange(of: customTopUpInput) { _ in
+                    if effectiveTopUpAmount > 0 {
+                        showTransferCard = true
+                    }
+                }
+
+            Button(action: {
+                pulseHaptic()
+                if effectiveTopUpAmount <= 0 {
+                    walletNotice = "Vui lòng chọn hoặc nhập số tiền hợp lệ."
+                    return
+                }
+                showTransferCard = true
+            }) {
+                Text("Hiện thông tin chuyển khoản (\(formatVND(effectiveTopUpAmount)))")
+                    .font(.headline)
+                    .foregroundColor(.white)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 48)
+                    .background(Color.orange)
+                    .cornerRadius(12)
+            }
+
+            if showTransferCard {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text("Thông tin chuyển khoản")
+                            .font(.subheadline.bold())
+                            .foregroundColor(inkPrimary)
+                        Spacer()
+                        Button("Ẩn") {
+                            showTransferCard = false
+                        }
+                        .font(.caption.bold())
+                        .foregroundColor(inkSecondary)
+                    }
+
+                    transferInfoRow(title: "Ngân hàng", value: adminBankName, copyValue: adminBankName, tag: "tên ngân hàng")
+                    transferInfoRow(title: "Số tài khoản", value: adminAccountNumber, copyValue: adminAccountNumber, tag: "số tài khoản")
+                    transferInfoRow(title: "Chủ tài khoản", value: adminAccountHolder, copyValue: adminAccountHolder, tag: "chủ tài khoản")
+                    transferInfoRow(title: "Số tiền", value: formatVND(effectiveTopUpAmount), copyValue: "\(effectiveTopUpAmount)", tag: "số tiền")
+                    transferInfoRow(title: "Nội dung CK", value: transferMemo, copyValue: transferMemo, tag: "nội dung chuyển khoản")
+
                     Button(action: {
                         pulseHaptic()
                         guard let idx = activeIndex else { return }
-                        profiles[idx].balance += amt
+                        let addAmt = effectiveTopUpAmount
+                        guard addAmt > 0 else { return }
+                        profiles[idx].balance += addAmt
                         persistProfiles()
-                        walletNotice = "Đã cộng +\(formatVND(amt))."
+                        walletNotice = "Đã xác nhận cộng +\(formatVND(addAmt)) vào số dư."
                     }) {
-                        Text("+ \(formatVND(amt))")
+                        Text("Xác nhận đã chuyển (Cộng số dư test)")
                             .font(.subheadline.bold())
-                            .foregroundColor(inkPrimary)
+                            .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
                             .frame(maxWidth: .infinity)
-                            .frame(height: 46)
-                            .background(fieldSurface)
+                            .frame(height: 44)
+                            .background(Color(red: 0.16, green: 0.78, blue: 0.44).opacity(0.14))
                             .cornerRadius(10)
                     }
                 }
+                .padding(12)
+                .background(fieldSurface)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.5), lineWidth: 1))
             }
 
             if let msg = walletNotice {
@@ -961,6 +1042,35 @@ struct ContentView: View {
         .background(cardSurface)
         .cornerRadius(16)
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(strokeTone, lineWidth: 1))
+    }
+
+    private func transferInfoRow(title: String, value: String, copyValue: String, tag: String) -> some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption2)
+                    .foregroundColor(inkSecondary)
+                Text(value)
+                    .font(.subheadline.bold())
+                    .foregroundColor(inkPrimary)
+            }
+            Spacer()
+            Button(action: {
+                copyToClipboard(copyValue, label: tag)
+            }) {
+                Text("Sao chép")
+                    .font(.caption.bold())
+                    .foregroundColor(.orange)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(cardSurface)
+                    .cornerRadius(8)
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(strokeTone, lineWidth: 1))
+            }
+        }
+        .padding(8)
+        .background(cardSurface.opacity(0.7))
+        .cornerRadius(10)
     }
 
     private func preferencesSection(profile: MemberProfile) -> some View {
@@ -979,13 +1089,6 @@ struct ContentView: View {
                 UserDefaults.standard.set(val, forKey: darkKey)
                 prefNotice = val ? "Đã bật nền đen." : "Đã bật nền trắng."
             }
-
-            Toggle("Hiện tỉ lệ vòng quay", isOn: $showRates)
-                .tint(.orange)
-                .foregroundColor(inkPrimary)
-                .onChange(of: showRates) { val in
-                    UserDefaults.standard.set(val, forKey: ratesKey)
-                }
 
             Toggle("Rung phản hồi", isOn: $enableHaptic)
                 .tint(.orange)
@@ -1044,9 +1147,6 @@ struct ContentView: View {
         }
         if UserDefaults.standard.object(forKey: darkKey) != nil {
             darkTheme = UserDefaults.standard.bool(forKey: darkKey)
-        }
-        if UserDefaults.standard.object(forKey: ratesKey) != nil {
-            showRates = UserDefaults.standard.bool(forKey: ratesKey)
         }
         if UserDefaults.standard.object(forKey: hapticKey) != nil {
             enableHaptic = UserDefaults.standard.bool(forKey: hapticKey)
