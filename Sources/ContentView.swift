@@ -2,113 +2,12 @@ import SwiftUI
 import PhotosUI
 import UIKit
 
-struct RewardOption: Identifiable, Codable {
-    let id: UUID
-    let label: String
-    let amount: Int
-    let weight: Int
-
-    init(id: UUID = UUID(), label: String, amount: Int, weight: Int) {
-        self.id = id
-        self.label = label
-        self.amount = amount
-        self.weight = max(1, weight)
-    }
-}
-
-enum GamePlatform: String, CaseIterable, Identifiable, Codable {
-    case lienQuan = "Liên Quân"
-    case freeFire = "Free Fire"
-    case fcMobile = "FC Mobile"
-
-    var id: String { rawValue }
-
-    var currencyName: String {
-        switch self {
-        case .lienQuan: return "Quân Huy"
-        case .freeFire: return "Kim Cương"
-        case .fcMobile: return "FV"
-        }
-    }
-
-    var spinCost: Int {
-        switch self {
-        case .lienQuan: return 10_000
-        case .freeFire: return 15_000
-        case .fcMobile: return 20_000
-        }
-    }
-
-    var rewards: [RewardOption] {
-        switch self {
-        case .lienQuan:
-            return [
-                RewardOption(label: "60 QH", amount: 60, weight: 32),
-                RewardOption(label: "150 QH", amount: 150, weight: 28),
-                RewardOption(label: "300 QH", amount: 300, weight: 20),
-                RewardOption(label: "650 QH", amount: 650, weight: 12),
-                RewardOption(label: "1.200 QH", amount: 1200, weight: 6),
-                RewardOption(label: "2.500 QH", amount: 2500, weight: 2)
-            ]
-        case .freeFire:
-            return [
-                RewardOption(label: "70 KC", amount: 70, weight: 32),
-                RewardOption(label: "140 KC", amount: 140, weight: 28),
-                RewardOption(label: "290 KC", amount: 290, weight: 20),
-                RewardOption(label: "580 KC", amount: 580, weight: 12),
-                RewardOption(label: "1.150 KC", amount: 1150, weight: 6),
-                RewardOption(label: "2.200 KC", amount: 2200, weight: 2)
-            ]
-        case .fcMobile:
-            return [
-                RewardOption(label: "100 FV", amount: 100, weight: 32),
-                RewardOption(label: "200 FV", amount: 200, weight: 28),
-                RewardOption(label: "450 FV", amount: 450, weight: 20),
-                RewardOption(label: "950 FV", amount: 950, weight: 12),
-                RewardOption(label: "1.800 FV", amount: 1800, weight: 6),
-                RewardOption(label: "3.500 FV", amount: 3500, weight: 2)
-            ]
-        }
-    }
-}
-
 enum LoginMethod: String, CaseIterable, Identifiable, Codable {
     case facebook = "Facebook"
     case google = "Google"
     case account = "Tài khoản"
 
     var id: String { rawValue }
-}
-
-enum ThemeMode: String, CaseIterable, Identifiable, Codable {
-    case dark = "Nền đen"
-    case light = "Nền trắng"
-
-    var id: String { rawValue }
-}
-
-enum AccentChoice: String, CaseIterable, Identifiable, Codable {
-    case orange = "Cam"
-    case blue = "Xanh dương"
-    case mint = "Xanh ngọc"
-
-    var id: String { rawValue }
-
-    var color: Color {
-        switch self {
-        case .orange: return .orange
-        case .blue: return Color(red: 0.25, green: 0.58, blue: 1.0)
-        case .mint: return Color(red: 0.14, green: 0.78, blue: 0.62)
-        }
-    }
-}
-
-struct NotebookSettings: Codable {
-    var themeMode: ThemeMode = .dark
-    var accentChoice: AccentChoice = .orange
-    var showGreetingBanner: Bool = true
-    var hapticEnabled: Bool = true
-    var showRewardList: Bool = true
 }
 
 struct UserAccount: Codable, Identifiable {
@@ -132,27 +31,6 @@ struct AccountListing: Identifiable, Codable {
     let createdAt: Date
 }
 
-struct WheelSliceShape: Shape {
-    let startAngle: Angle
-    let endAngle: Angle
-
-    func path(in rect: CGRect) -> Path {
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = min(rect.width, rect.height) / 2.0
-        var path = Path()
-        path.move(to: center)
-        path.addArc(
-            center: center,
-            radius: radius,
-            startAngle: startAngle,
-            endAngle: endAngle,
-            clockwise: false
-        )
-        path.closeSubpath()
-        return path
-    }
-}
-
 struct ContentView: View {
     private let accountsKey = "notebook_shop_accounts_v2"
     private let currentUserKey = "notebook_shop_current_user_v2"
@@ -173,11 +51,6 @@ struct ContentView: View {
     @State private var selectedSection = 0
     @State private var showNotice = true
 
-    @State private var selectedPlatform: GamePlatform = .lienQuan
-    @State private var wheelAngle: Double = 0
-    @State private var isSpinning = false
-    @State private var lastSpinResult = "Chọn vòng quay và kiểm tra giá lượt trước khi quay"
-
     @State private var newPlatform: GamePlatform = .lienQuan
     @State private var newTitle = ""
     @State private var newPriceText = ""
@@ -188,49 +61,18 @@ struct ContentView: View {
 
     private let topUpAmounts = [10_000, 20_000, 50_000, 100_000, 200_000, 500_000]
     @State private var topUpNotice: String?
-
-    @State private var settingsNotice: String?
     @State private var filterPlatform: GamePlatform? = nil
 
-    private var isDark: Bool {
-        settings.themeMode == .dark
-    }
-
-    private var accent: Color {
-        settings.accentChoice.color
-    }
-
-    private var pageBgTop: Color {
-        isDark ? Color(red: 0.06, green: 0.07, blue: 0.09) : Color(red: 0.99, green: 0.98, blue: 0.96)
-    }
-
-    private var pageBgBottom: Color {
-        isDark ? Color(red: 0.10, green: 0.11, blue: 0.15) : Color(red: 0.95, green: 0.94, blue: 0.91)
-    }
-
-    private var cardBg: Color {
-        isDark ? Color(red: 0.14, green: 0.16, blue: 0.21) : Color.white
-    }
-
-    private var inputBg: Color {
-        isDark ? Color(red: 0.09, green: 0.10, blue: 0.14) : Color(red: 0.97, green: 0.97, blue: 0.96)
-    }
-
-    private var primaryText: Color {
-        isDark ? .white : Color(red: 0.12, green: 0.12, blue: 0.14)
-    }
-
-    private var secondaryText: Color {
-        isDark ? Color.white.opacity(0.72) : Color(red: 0.42, green: 0.42, blue: 0.46)
-    }
-
-    private var borderTone: Color {
-        isDark ? Color.white.opacity(0.11) : Color.black.opacity(0.12)
-    }
-
-    private var spineColor: Color {
-        isDark ? Color(red: 0.18, green: 0.16, blue: 0.15) : Color(red: 0.20, green: 0.20, blue: 0.22)
-    }
+    private var isDark: Bool { settings.themeMode == .dark }
+    private var accent: Color { settings.accentChoice.color }
+    private var pageBgTop: Color { isDark ? Color(red: 0.06, green: 0.07, blue: 0.09) : Color(red: 0.99, green: 0.98, blue: 0.96) }
+    private var pageBgBottom: Color { isDark ? Color(red: 0.10, green: 0.11, blue: 0.15) : Color(red: 0.95, green: 0.94, blue: 0.91) }
+    private var cardBg: Color { isDark ? Color(red: 0.14, green: 0.16, blue: 0.21) : Color.white }
+    private var inputBg: Color { isDark ? Color(red: 0.09, green: 0.10, blue: 0.14) : Color(red: 0.97, green: 0.97, blue: 0.96) }
+    private var primaryText: Color { isDark ? .white : Color(red: 0.12, green: 0.12, blue: 0.14) }
+    private var secondaryText: Color { isDark ? Color.white.opacity(0.72) : Color(red: 0.42, green: 0.42, blue: 0.46) }
+    private var borderTone: Color { isDark ? Color.white.opacity(0.11) : Color.black.opacity(0.12) }
+    private var spineColor: Color { isDark ? Color(red: 0.18, green: 0.16, blue: 0.15) : Color(red: 0.20, green: 0.20, blue: 0.22) }
 
     private var currentUserIndex: Int? {
         accounts.firstIndex { $0.username.caseInsensitiveCompare(activeUsername) == .orderedSame }
@@ -246,11 +88,15 @@ struct ContentView: View {
         return listings.filter { $0.platform == fp }
     }
 
+    private func haptic() {
+        guard settings.hapticEnabled else { return }
+        UIImpactFeedbackGenerator(style: .light).impactOccurred()
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
                 notebookBackground
-
                 if let user = currentUser {
                     mainNotebookContent(user: user)
                 } else {
@@ -263,7 +109,7 @@ struct ContentView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     if currentUser != nil {
                         Button("Đăng xuất") {
-                            triggerHaptic()
+                            haptic()
                             activeUsername = ""
                             UserDefaults.standard.set("", forKey: currentUserKey)
                             authUsername = ""
@@ -312,11 +158,9 @@ struct ContentView: View {
                     Image(systemName: "book.closed.fill")
                         .font(.system(size: 40))
                         .foregroundColor(accent)
-
                     Text("Sổ Quản Lý Acc & Vòng Quay")
                         .font(.title2.bold())
                         .foregroundColor(primaryText)
-
                     Text(isRegisterTab ? "Tạo tài khoản mới để lưu số dư & tin đăng" : "Đăng nhập bằng tài khoản đã tạo")
                         .font(.subheadline)
                         .foregroundColor(secondaryText)
@@ -340,20 +184,14 @@ struct ContentView: View {
                         .padding(14)
                         .background(inputBg)
                         .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(borderTone, lineWidth: 1)
-                        )
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
 
                     SecureField("Mật khẩu", text: $authPassword)
                         .foregroundColor(primaryText)
                         .padding(14)
                         .background(inputBg)
                         .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(borderTone, lineWidth: 1)
-                        )
+                        .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
 
                     if isRegisterTab {
                         SecureField("Nhập lại mật khẩu", text: $authConfirmPassword)
@@ -361,10 +199,7 @@ struct ContentView: View {
                             .padding(14)
                             .background(inputBg)
                             .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(borderTone, lineWidth: 1)
-                            )
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
                     }
 
                     if let err = authErrorMessage {
@@ -387,10 +222,7 @@ struct ContentView: View {
                 .padding(16)
                 .background(cardBg)
                 .cornerRadius(18)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 18)
-                        .stroke(borderTone, lineWidth: 1)
-                )
+                .overlay(RoundedRectangle(cornerRadius: 18).stroke(borderTone, lineWidth: 1))
             }
             .padding(.leading, 24)
             .padding(.trailing, 16)
@@ -399,10 +231,9 @@ struct ContentView: View {
     }
 
     private func handleAuthSubmit() {
-        triggerHaptic()
+        haptic()
         let cleanUser = authUsername.trimmingCharacters(in: .whitespacesAndNewlines)
         let cleanPass = authPassword
-
         if cleanUser.count < 3 {
             authErrorMessage = "Tên tài khoản cần ít nhất 3 ký tự."
             return
@@ -411,26 +242,16 @@ struct ContentView: View {
             authErrorMessage = "Mật khẩu cần ít nhất 4 ký tự."
             return
         }
-
         if isRegisterTab {
             if cleanPass != authConfirmPassword {
                 authErrorMessage = "Mật khẩu nhập lại chưa khớp."
                 return
             }
-            let exists = accounts.contains { $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame }
-            if exists {
+            if accounts.contains(where: { $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame }) {
                 authErrorMessage = "Tên tài khoản này đã tồn tại."
                 return
             }
-            let created = UserAccount(
-                id: UUID(),
-                username: cleanUser,
-                password: cleanPass,
-                balance: 0,
-                quanHuy: 0,
-                kimCuong: 0,
-                fv: 0
-            )
+            let created = UserAccount(id: UUID(), username: cleanUser, password: cleanPass, balance: 0, quanHuy: 0, kimCuong: 0, fv: 0)
             accounts.append(created)
             saveAccounts()
             activeUsername = created.username
@@ -440,7 +261,7 @@ struct ContentView: View {
             guard let matched = accounts.first(where: {
                 $0.username.caseInsensitiveCompare(cleanUser) == .orderedSame && $0.password == cleanPass
             }) else {
-                authErrorMessage = "Sai tên tài khoản hoặc mật khẩu. Hãy tạo tài khoản trước nếu chưa có."
+                authErrorMessage = "Sai tên tài khoản hoặc mật khẩu."
                 return
             }
             activeUsername = matched.username
@@ -456,16 +277,11 @@ struct ContentView: View {
                     HStack(spacing: 10) {
                         Image(systemName: "bookmark.fill")
                             .foregroundColor(accent)
-
                         Text("Chào \(user.username) • Số dư hiện tại: \(formatVND(user.balance))")
                             .font(.subheadline.weight(.semibold))
                             .foregroundColor(primaryText)
-
                         Spacer()
-
-                        Button(action: {
-                            showNotice = false
-                        }) {
+                        Button(action: { showNotice = false }) {
                             Image(systemName: "xmark")
                                 .font(.footnote.bold())
                                 .foregroundColor(secondaryText)
@@ -477,10 +293,7 @@ struct ContentView: View {
                     .padding(12)
                     .background(cardBg)
                     .cornerRadius(14)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 14)
-                            .stroke(borderTone, lineWidth: 1)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 14).stroke(borderTone, lineWidth: 1))
                 }
 
                 walletSummaryCard(user: user)
@@ -504,19 +317,66 @@ struct ContentView: View {
                 case 0:
                     homeListingsView
                 case 1:
-                    wheelSpinView(user: user)
+                    WheelSpinView(
+                        balance: user.balance,
+                        accent: accent,
+                        cardBg: cardBg,
+                        inputBg: inputBg,
+                        primaryText: primaryText,
+                        secondaryText: secondaryText,
+                        borderTone: borderTone,
+                        isDark: isDark,
+                        showRewardList: settings.showRewardList,
+                        hapticEnabled: settings.hapticEnabled,
+                        formatVND: formatVND,
+                        onSpinComplete: applySpinReward
+                    )
                 case 2:
                     createListingView
                 case 3:
                     topUpView
                 default:
-                    settingsView(user: user)
+                    SettingsTabView(
+                        settings: $settings,
+                        username: user.username,
+                        listingCount: listings.count,
+                        accent: accent,
+                        cardBg: cardBg,
+                        inputBg: inputBg,
+                        primaryText: primaryText,
+                        secondaryText: secondaryText,
+                        borderTone: borderTone,
+                        onSaveSettings: saveSettings,
+                        onResetSettings: {
+                            settings = NotebookSettings()
+                            showNotice = true
+                            saveSettings()
+                        },
+                        onClearListings: {
+                            listings.removeAll()
+                            saveListings()
+                        }
+                    )
                 }
             }
             .padding(.leading, 24)
             .padding(.trailing, 16)
             .padding(.vertical, 16)
         }
+    }
+
+    private func applySpinReward(platform: GamePlatform, reward: RewardOption) {
+        guard let idx = currentUserIndex else { return }
+        accounts[idx].balance = max(0, accounts[idx].balance - platform.spinCost)
+        switch platform {
+        case .lienQuan:
+            accounts[idx].quanHuy += reward.amount
+        case .freeFire:
+            accounts[idx].kimCuong += reward.amount
+        case .fcMobile:
+            accounts[idx].fv += reward.amount
+        }
+        saveAccounts()
     }
 
     private func walletSummaryCard(user: UserAccount) -> some View {
@@ -531,8 +391,7 @@ struct ContentView: View {
                     .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
             }
 
-            Divider()
-                .background(borderTone)
+            Divider().background(borderTone)
 
             HStack(spacing: 8) {
                 resourcePill(label: "Quân Huy", value: "\(user.quanHuy)", tint: Color(red: 0.32, green: 0.65, blue: 1.0))
@@ -543,20 +402,13 @@ struct ContentView: View {
         .padding(14)
         .background(cardBg)
         .cornerRadius(16)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(borderTone, lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderTone, lineWidth: 1))
     }
 
     private func resourcePill(label: String, value: String, tint: Color) -> some View {
         VStack(spacing: 3) {
-            Text(value)
-                .font(.subheadline.bold())
-                .foregroundColor(tint)
-            Text(label)
-                .font(.caption2.weight(.medium))
-                .foregroundColor(secondaryText)
+            Text(value).font(.subheadline.bold()).foregroundColor(tint)
+            Text(label).font(.caption2.weight(.medium)).foregroundColor(secondaryText)
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
@@ -572,7 +424,7 @@ struct ContentView: View {
                     .foregroundColor(primaryText)
                 Spacer()
                 Button("+ Đăng bán") {
-                    triggerHaptic()
+                    haptic()
                     selectedSection = 2
                 }
                 .font(.subheadline.weight(.semibold))
@@ -607,10 +459,7 @@ struct ContentView: View {
                 .padding(24)
                 .background(cardBg)
                 .cornerRadius(16)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16)
-                        .stroke(borderTone, lineWidth: 1)
-                )
+                .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderTone, lineWidth: 1))
             } else {
                 ForEach(filteredListings) { item in
                     VStack(alignment: .leading, spacing: 10) {
@@ -619,7 +468,7 @@ struct ContentView: View {
                                 .resizable()
                                 .scaledToFill()
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 190)
+                                .frame(height: 195)
                                 .clipped()
                                 .cornerRadius(12)
                         } else {
@@ -628,22 +477,15 @@ struct ContentView: View {
                                 .frame(height: 140)
                                 .overlay(
                                     VStack(spacing: 6) {
-                                        Image(systemName: "gamecontroller.fill")
-                                            .font(.title2)
-                                            .foregroundColor(accent)
-                                        Text(item.platform.rawValue)
-                                            .font(.caption.bold())
-                                            .foregroundColor(primaryText.opacity(0.85))
+                                        Image(systemName: "gamecontroller.fill").font(.title2).foregroundColor(accent)
+                                        Text(item.platform.rawValue).font(.caption.bold()).foregroundColor(primaryText.opacity(0.85))
                                     }
                                 )
                         }
 
                         HStack(alignment: .top) {
                             VStack(alignment: .leading, spacing: 6) {
-                                Text(item.title)
-                                    .font(.headline)
-                                    .foregroundColor(primaryText)
-
+                                Text(item.title).font(.headline).foregroundColor(primaryText)
                                 HStack(spacing: 8) {
                                     Text(item.platform.rawValue)
                                         .font(.caption.bold())
@@ -652,7 +494,6 @@ struct ContentView: View {
                                         .padding(.vertical, 4)
                                         .background(inputBg)
                                         .cornerRadius(10)
-
                                     Text("Đăng nhập: \(item.loginMethod.rawValue)")
                                         .font(.caption.weight(.semibold))
                                         .foregroundColor(Color(red: 0.35, green: 0.68, blue: 1.0))
@@ -662,24 +503,18 @@ struct ContentView: View {
                                         .cornerRadius(10)
                                 }
                             }
-
                             Spacer()
-
-                            Text(formatVND(item.price))
-                                .font(.headline.bold())
-                                .foregroundColor(accent)
+                            Text(formatVND(item.price)).font(.headline.bold()).foregroundColor(accent)
                         }
 
                         HStack {
-                            Text("Người đăng: \(item.sellerName)")
-                                .font(.caption)
-                                .foregroundColor(secondaryText)
-
+                            Text("Người đăng: \(item.sellerName)").font(.caption).foregroundColor(secondaryText)
                             Spacer()
-
                             if item.sellerName.caseInsensitiveCompare(activeUsername) == .orderedSame {
                                 Button("Xóa tin") {
-                                    deleteListing(item)
+                                    haptic()
+                                    listings.removeAll { $0.id == item.id }
+                                    saveListings()
                                 }
                                 .font(.caption.bold())
                                 .padding(.horizontal, 12)
@@ -688,9 +523,17 @@ struct ContentView: View {
                                 .foregroundColor(.red)
                                 .cornerRadius(16)
                             }
-
                             Button("Mua thử") {
-                                buyListing(item)
+                                haptic()
+                                guard let idx = currentUserIndex else { return }
+                                if accounts[idx].balance >= item.price {
+                                    accounts[idx].balance -= item.price
+                                    saveAccounts()
+                                    listings.removeAll { $0.id == item.id }
+                                    saveListings()
+                                } else {
+                                    showNotice = true
+                                }
                             }
                             .font(.caption.bold())
                             .padding(.horizontal, 14)
@@ -703,10 +546,7 @@ struct ContentView: View {
                     .padding(14)
                     .background(cardBg)
                     .cornerRadius(16)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 16)
-                            .stroke(borderTone, lineWidth: 1)
-                    )
+                    .overlay(RoundedRectangle(cornerRadius: 16).stroke(borderTone, lineWidth: 1))
                 }
             }
         }
@@ -715,7 +555,7 @@ struct ContentView: View {
     private func filterChip(title: String, target: GamePlatform?) -> some View {
         let active = filterPlatform == target
         return Button(action: {
-            triggerHaptic()
+            haptic()
             filterPlatform = target
         }) {
             Text(title)
@@ -725,314 +565,16 @@ struct ContentView: View {
                 .background(active ? accent : cardBg)
                 .foregroundColor(active ? .white : primaryText)
                 .cornerRadius(14)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 14)
-                        .stroke(active ? accent : borderTone, lineWidth: 1)
-                )
-        }
-    }
-
-    private func deleteListing(_ item: AccountListing) {
-        triggerHaptic()
-        listings.removeAll { $0.id == item.id }
-        saveListings()
-    }
-
-    private func buyListing(_ item: AccountListing) {
-        triggerHaptic()
-        guard let idx = currentUserIndex else { return }
-        if accounts[idx].balance >= item.price {
-            accounts[idx].balance -= item.price
-            saveAccounts()
-            listings.removeAll { $0.id == item.id }
-            saveListings()
-        } else {
-            showNotice = true
-        }
-    }
-
-    private func sliceColor(index: Int) -> Color {
-        let palette: [Color] = [
-            Color(red: 0.22, green: 0.42, blue: 0.78),
-            Color(red: 0.16, green: 0.62, blue: 0.56),
-            Color(red: 0.78, green: 0.42, blue: 0.16),
-            Color(red: 0.42, green: 0.28, blue: 0.74),
-            Color(red: 0.20, green: 0.54, blue: 0.86),
-            Color(red: 0.74, green: 0.22, blue: 0.36)
-        ]
-        return palette[index % palette.count]
-    }
-
-    private func wheelSpinView(user: UserAccount) -> some View {
-        let pool = selectedPlatform.rewards
-        let sliceCount = pool.count
-        let sliceDeg = 360.0 / Double(sliceCount)
-
-        return VStack(spacing: 16) {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Chọn vòng quay theo nền tảng")
-                    .font(.headline)
-                    .foregroundColor(primaryText)
-
-                VStack(spacing: 8) {
-                    ForEach(GamePlatform.allCases) { platform in
-                        let isSelected = selectedPlatform == platform
-                        Button(action: {
-                            triggerHaptic()
-                            selectedPlatform = platform
-                            lastSpinResult = "Vòng \(platform.rawValue) • Giá \(formatVND(platform.spinCost))/lượt"
-                        }) {
-                            HStack {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text(platform.rawValue)
-                                        .font(.subheadline.bold())
-                                        .foregroundColor(primaryText)
-                                    Text("Thưởng: \(platform.currencyName)")
-                                        .font(.caption)
-                                        .foregroundColor(secondaryText)
-                                }
-
-                                Spacer()
-
-                                Text("\(formatVND(platform.spinCost)) / lượt")
-                                    .font(.subheadline.bold())
-                                    .padding(.horizontal, 10)
-                                    .padding(.vertical, 6)
-                                    .background(isSelected ? accent : inputBg)
-                                    .foregroundColor(isSelected ? .white : primaryText)
-                                    .cornerRadius(14)
-                            }
-                            .padding(12)
-                            .background(isSelected ? accent.opacity(0.14) : inputBg)
-                            .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(isSelected ? accent : borderTone, lineWidth: isSelected ? 1.5 : 1)
-                            )
-                        }
-                        .disabled(isSpinning)
-                    }
-                }
-
-                HStack {
-                    Text("Giá vòng đang chọn: \(formatVND(selectedPlatform.spinCost))")
-                        .font(.footnote.bold())
-                        .foregroundColor(accent)
-                    Spacer()
-                    Text("Số dư: \(formatVND(user.balance))")
-                        .font(.footnote.bold())
-                        .foregroundColor(user.balance >= selectedPlatform.spinCost ? Color(red: 0.16, green: 0.78, blue: 0.44) : .red)
-                }
-            }
-            .padding(14)
-            .background(cardBg)
-            .cornerRadius(16)
-
-            VStack(spacing: 10) {
-                ZStack {
-                    ZStack {
-                        ForEach(0..<sliceCount, id: \.self) { idx in
-                            let startDeg = -90.0 + Double(idx) * sliceDeg - sliceDeg / 2.0
-                            let endDeg = startDeg + sliceDeg
-                            let midRad = (-90.0 + Double(idx) * sliceDeg) * Double.pi / 180.0
-                            let labelR: CGFloat = 76
-
-                            WheelSliceShape(
-                                startAngle: .degrees(startDeg),
-                                endAngle: .degrees(endDeg)
-                            )
-                            .fill(sliceColor(index: idx))
-                            .overlay(
-                                WheelSliceShape(
-                                    startAngle: .degrees(startDeg),
-                                    endAngle: .degrees(endDeg)
-                                )
-                                .stroke(Color.white.opacity(0.85), lineWidth: 1.5)
-                            )
-
-                            Text(pool[idx].label)
-                                .font(.caption2.bold())
-                                .foregroundColor(.white)
-                                .shadow(color: Color.black.opacity(0.55), radius: 1.5, x: 0, y: 1)
-                                .offset(
-                                    x: cos(midRad) * labelR,
-                                    y: sin(midRad) * labelR
-                                )
-                        }
-                    }
-                    .frame(width: 240, height: 240)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(Color.white, lineWidth: 4))
-                    .shadow(color: Color.black.opacity(0.35), radius: 10)
-                    .rotationEffect(.degrees(wheelAngle))
-
-                    Circle()
-                        .fill(cardBg)
-                        .frame(width: 72, height: 72)
-                        .overlay(Circle().stroke(accent, lineWidth: 2.5))
-                        .shadow(radius: 4)
-
-                    VStack(spacing: 1) {
-                        Text(selectedPlatform.rawValue)
-                            .font(.caption2.bold())
-                        Text(formatVND(selectedPlatform.spinCost))
-                            .font(.caption2)
-                            .foregroundColor(secondaryText)
-                    }
-                    .multilineTextAlignment(.center)
-                    .foregroundColor(primaryText)
-                }
-                .overlay(alignment: .top) {
-                    Image(systemName: "arrowtriangle.down.fill")
-                        .font(.title)
-                        .foregroundColor(.red)
-                        .shadow(color: Color.black.opacity(0.45), radius: 2, x: 0, y: 2)
-                        .offset(y: -14)
-                }
-                .padding(.top, 14)
-                .padding(.bottom, 6)
-
-                Text(lastSpinResult)
-                    .font(.subheadline.bold())
-                    .foregroundColor(primaryText)
-                    .multilineTextAlignment(.center)
-                    .padding(.horizontal, 8)
-            }
-
-            if settings.showRewardList {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Mốc thưởng & tỉ lệ \(selectedPlatform.rawValue)")
-                        .font(.caption.bold())
-                        .foregroundColor(secondaryText)
-
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
-                        ForEach(pool) { opt in
-                            HStack {
-                                Text(opt.label)
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundColor(primaryText)
-                                Spacer()
-                                Text("\(opt.weight)%")
-                                    .font(.caption2.bold())
-                                    .foregroundColor(accent)
-                            }
-                            .padding(.horizontal, 10)
-                            .padding(.vertical, 6)
-                            .background(inputBg)
-                            .cornerRadius(10)
-                        }
-                    }
-                }
-                .padding(12)
-                .background(inputBg.opacity(0.65))
-                .cornerRadius(14)
-            }
-
-            Button(action: spinWheel) {
-                Text(isSpinning ? "Đang quay vòng..." : "Quay \(selectedPlatform.rawValue) (-\(formatVND(selectedPlatform.spinCost)))")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 50)
-                    .background(isSpinning ? accent.opacity(0.65) : accent)
-                    .cornerRadius(14)
-            }
-            .disabled(isSpinning)
-        }
-        .padding(14)
-        .background(cardBg)
-        .cornerRadius(18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(borderTone, lineWidth: 1)
-        )
-    }
-
-    private func pickWeightedIndex(from pool: [RewardOption]) -> Int {
-        let totalWeight = pool.reduce(0) { $0 + $1.weight }
-        guard totalWeight > 0 else { return 0 }
-        let roll = Int.random(in: 1...totalWeight)
-        var running = 0
-        for (idx, item) in pool.enumerated() {
-            running += item.weight
-            if roll <= running {
-                return idx
-            }
-        }
-        return pool.count - 1
-    }
-
-    private func spinWheel() {
-        guard let idx = currentUserIndex, !isSpinning else { return }
-        triggerHaptic()
-
-        let cost = selectedPlatform.spinCost
-        let currentBalance = accounts[idx].balance
-
-        if currentBalance < cost {
-            let missingAmount = cost - currentBalance
-            lastSpinResult = "Số dư chưa đủ \(formatVND(cost)) (còn thiếu \(formatVND(missingAmount))). Hãy qua mục Nạp tiền."
-            return
-        }
-
-        accounts[idx].balance -= cost
-        saveAccounts()
-
-        isSpinning = true
-        lastSpinResult = "Đã trừ \(formatVND(cost)) • Đang quay \(selectedPlatform.rawValue)..."
-
-        let rewardPool = selectedPlatform.rewards
-        let pickedIndex = pickWeightedIndex(from: rewardPool)
-        let picked = rewardPool[pickedIndex]
-
-        let sliceAngle = 360.0 / Double(rewardPool.count)
-        let targetSliceCenter = Double(pickedIndex) * sliceAngle
-        let currentMod = wheelAngle.truncatingRemainder(dividingBy: 360.0)
-        let desiredMod = (360.0 - targetSliceCenter).truncatingRemainder(dividingBy: 360.0)
-        var deltaToTarget = desiredMod - currentMod
-        if deltaToTarget < 0 {
-            deltaToTarget += 360.0
-        }
-        let extraSpins = 360.0 * 5.0
-        let jitter = Double.random(in: -sliceAngle * 0.22 ... sliceAngle * 0.22)
-        let totalDelta = extraSpins + deltaToTarget + jitter
-
-        withAnimation(.timingCurve(0.14, 0.88, 0.25, 1.0, duration: 2.4)) {
-            wheelAngle += totalDelta
-        }
-
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.45) {
-            guard let userIdx = currentUserIndex else {
-                isSpinning = false
-                return
-            }
-
-            switch selectedPlatform {
-            case .lienQuan:
-                accounts[userIdx].quanHuy += picked.amount
-            case .freeFire:
-                accounts[userIdx].kimCuong += picked.amount
-            case .fcMobile:
-                accounts[userIdx].fv += picked.amount
-            }
-
-            saveAccounts()
-            triggerHaptic()
-            lastSpinResult = "Nổ \(picked.label) (\(selectedPlatform.rawValue))!"
-            isSpinning = false
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(active ? accent : borderTone, lineWidth: 1))
         }
     }
 
     private var createListingView: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Đăng tin bán acc lên màn hình chính")
-                .font(.headline)
-                .foregroundColor(primaryText)
+            Text("Đăng tin bán acc lên màn hình chính").font(.headline).foregroundColor(primaryText)
 
             Picker("Nền tảng", selection: $newPlatform) {
-                ForEach(GamePlatform.allCases) { platform in
-                    Text(platform.rawValue).tag(platform)
-                }
+                ForEach(GamePlatform.allCases) { p in Text(p.rawValue).tag(p) }
             }
             .pickerStyle(.segmented)
 
@@ -1041,10 +583,7 @@ struct ContentView: View {
                 .padding(12)
                 .background(inputBg)
                 .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(borderTone, lineWidth: 1)
-                )
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
 
             TextField("Giá tiền cần bán (vd: 150000)", text: $newPriceText)
                 .keyboardType(.numberPad)
@@ -1052,20 +591,12 @@ struct ContentView: View {
                 .padding(12)
                 .background(inputBg)
                 .cornerRadius(12)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 12)
-                        .stroke(borderTone, lineWidth: 1)
-                )
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("Cách thức đăng nhập")
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundColor(primaryText)
-
+                Text("Cách thức đăng nhập").font(.subheadline.weight(.semibold)).foregroundColor(primaryText)
                 Picker("Cách đăng nhập", selection: $newLoginMethod) {
-                    ForEach(LoginMethod.allCases) { method in
-                        Text(method.rawValue).tag(method)
-                    }
+                    ForEach(LoginMethod.allCases) { m in Text(m.rawValue).tag(m) }
                 }
                 .pickerStyle(.segmented)
             }
@@ -1073,36 +604,57 @@ struct ContentView: View {
             PhotosPicker(selection: $selectedListingPhoto, matching: .images) {
                 HStack {
                     Image(systemName: "photo.badge.plus")
-                    Text(newImageData == nil ? "Chọn ảnh acc từ thư viện" : "Đổi ảnh acc khác")
-                        .fontWeight(.semibold)
+                    Text(newImageData == nil ? "Chọn ảnh acc từ thư viện" : "Đổi ảnh acc khác").fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 46)
                 .background(inputBg)
                 .foregroundColor(accent)
                 .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
+            }
+            .onChange(of: selectedListingPhoto) { newItem in
+                if newItem != nil {
+                    loadPickedImage()
+                }
             }
 
-            Button(action: loadPickedImage) {
-                Text(selectedListingPhoto == nil ? "Tải ảnh đã chọn vào bài đăng" : "Xác nhận ảnh acc đã chọn")
-                    .font(.footnote.bold())
-                    .foregroundColor(accent)
+            if selectedListingPhoto != nil && newImageData == nil {
+                Button(action: loadPickedImage) {
+                    Text("Nạp lại ảnh đã chọn")
+                        .font(.footnote.bold())
+                        .foregroundColor(accent)
+                }
             }
 
             if let data = newImageData, let previewImg = UIImage(data: data) {
-                Image(uiImage: previewImg)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 165)
-                    .clipped()
-                    .cornerRadius(12)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Xem trước ảnh acc đã chọn")
+                        .font(.caption.bold())
+                        .foregroundColor(secondaryText)
+
+                    Image(uiImage: previewImg)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 180)
+                        .clipped()
+                        .cornerRadius(12)
+
+                    Button(role: .destructive, action: {
+                        haptic()
+                        newImageData = nil
+                        selectedListingPhoto = nil
+                        postMessage = "Đã bỏ ảnh đã chọn."
+                    }) {
+                        Text("Xóa ảnh này")
+                            .font(.caption.bold())
+                    }
+                }
             }
 
             if let msg = postMessage {
-                Text(msg)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
+                Text(msg).font(.footnote.weight(.semibold)).foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
             }
 
             Button(action: submitListing) {
@@ -1118,14 +670,25 @@ struct ContentView: View {
         .padding(14)
         .background(cardBg)
         .cornerRadius(18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(borderTone, lineWidth: 1)
-        )
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(borderTone, lineWidth: 1))
+    }
+
+    private func compressImageData(_ rawData: Data) -> Data? {
+        guard let img = UIImage(data: rawData) else { return rawData }
+        let maxSide: CGFloat = 1200
+        let size = img.size
+        let ratio = min(maxSide / max(size.width, 1), maxSide / max(size.height, 1), 1.0)
+        let targetSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+
+        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let resized = renderer.image { _ in
+            img.draw(in: CGRect(origin: .zero, size: targetSize))
+        }
+        return resized.jpegData(compressionQuality: 0.75) ?? rawData
     }
 
     private func loadPickedImage() {
-        triggerHaptic()
+        haptic()
         guard let item = selectedListingPhoto else {
             postMessage = "Hãy bấm 'Chọn ảnh acc từ thư viện' trước."
             return
@@ -1133,13 +696,14 @@ struct ContentView: View {
         Task {
             do {
                 if let data = try await item.loadTransferable(type: Data.self) {
+                    let prepared = compressImageData(data)
                     DispatchQueue.main.async {
-                        self.newImageData = data
-                        self.postMessage = "Đã tải ảnh acc."
+                        self.newImageData = prepared
+                        self.postMessage = "Đã hiện ảnh acc, kiểm tra khung xem trước rồi bấm Đăng."
                     }
                 } else {
                     DispatchQueue.main.async {
-                        self.postMessage = "Không đọc được dữ liệu ảnh này, thử chọn ảnh khác."
+                        self.postMessage = "Không đọc được ảnh này, thử chọn ảnh khác."
                     }
                 }
             } catch {
@@ -1151,12 +715,10 @@ struct ContentView: View {
     }
 
     private func submitListing() {
-        triggerHaptic()
+        haptic()
         guard let user = currentUser else { return }
         let cleanTitle = newTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        let digitsOnly = newPriceText.filter { $0.isNumber }
-        let price = Int(digitsOnly) ?? 0
-
+        let price = Int(newPriceText.filter { $0.isNumber }) ?? 0
         if cleanTitle.isEmpty {
             postMessage = "Nhập tên hoặc mô tả acc trước khi đăng."
             return
@@ -1165,7 +727,6 @@ struct ContentView: View {
             postMessage = "Nhập giá tiền bán hợp lệ lớn hơn 0."
             return
         }
-
         let item = AccountListing(
             id: UUID(),
             sellerName: user.username,
@@ -1176,10 +737,9 @@ struct ContentView: View {
             imageData: newImageData,
             createdAt: Date()
         )
-
         listings.insert(item, at: 0)
         saveListings()
-
+        filterPlatform = nil
         newTitle = ""
         newPriceText = ""
         newImageData = nil
@@ -1190,10 +750,7 @@ struct ContentView: View {
 
     private var topUpView: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text("Nạp tiền vào tài khoản")
-                .font(.headline)
-                .foregroundColor(primaryText)
-
+            Text("Nạp tiền vào tài khoản").font(.headline).foregroundColor(primaryText)
             Text("Chọn mệnh giá để cộng trực tiếp vào số dư tài khoản đang đăng nhập.")
                 .font(.footnote)
                 .foregroundColor(secondaryText)
@@ -1201,7 +758,11 @@ struct ContentView: View {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(topUpAmounts, id: \.self) { amount in
                     Button(action: {
-                        addBalance(amount)
+                        haptic()
+                        guard let idx = currentUserIndex else { return }
+                        accounts[idx].balance += amount
+                        saveAccounts()
+                        topUpNotice = "Đã cộng \(formatVND(amount)) vào tài khoản \(accounts[idx].username)."
                     }) {
                         Text("+ \(formatVND(amount))")
                             .font(.subheadline.bold())
@@ -1210,200 +771,19 @@ struct ContentView: View {
                             .frame(height: 50)
                             .background(inputBg)
                             .cornerRadius(12)
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .stroke(borderTone, lineWidth: 1)
-                            )
+                            .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
                     }
                 }
             }
 
             if let notice = topUpNotice {
-                Text(notice)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
+                Text(notice).font(.footnote.weight(.semibold)).foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
             }
         }
         .padding(14)
         .background(cardBg)
         .cornerRadius(18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(borderTone, lineWidth: 1)
-        )
-    }
-
-    private func addBalance(_ amount: Int) {
-        triggerHaptic()
-        guard let idx = currentUserIndex else { return }
-        accounts[idx].balance += amount
-        saveAccounts()
-        topUpNotice = "Đã cộng \(formatVND(amount)) vào tài khoản \(accounts[idx].username)."
-    }
-
-    private func settingsView(user: UserAccount) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("Cài đặt ứng dụng")
-                .font(.headline)
-                .foregroundColor(primaryText)
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Nền giao diện (Trắng / Đen)")
-                    .font(.subheadline.bold())
-                    .foregroundColor(primaryText)
-
-                Picker("Nền giao diện", selection: $settings.themeMode) {
-                    ForEach(ThemeMode.allCases) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .onChange(of: settings.themeMode) { _ in
-                    triggerHaptic()
-                    saveSettings()
-                    settingsNotice = "Đã chuyển sang \(settings.themeMode.rawValue)."
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Màu điểm nhấn")
-                    .font(.subheadline.bold())
-                    .foregroundColor(primaryText)
-
-                Picker("Màu điểm nhấn", selection: $settings.accentChoice) {
-                    ForEach(AccentChoice.allCases) { choice in
-                        Text(choice.rawValue).tag(choice)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .onChange(of: settings.accentChoice) { _ in
-                    triggerHaptic()
-                    saveSettings()
-                    settingsNotice = "Đã đổi màu nhấn sang \(settings.accentChoice.rawValue)."
-                }
-            }
-
-            Divider()
-                .background(borderTone)
-
-            Toggle(isOn: $settings.showGreetingBanner) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Hiện thanh chào ở đầu trang")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(primaryText)
-                    Text("Hiển thị tên tài khoản và số dư nhanh")
-                        .font(.caption)
-                        .foregroundColor(secondaryText)
-                }
-            }
-            .tint(accent)
-            .onChange(of: settings.showGreetingBanner) { newVal in
-                if newVal { showNotice = true }
-                saveSettings()
-            }
-
-            Toggle(isOn: $settings.showRewardList) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Hiện bảng mốc thưởng & tỉ lệ")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(primaryText)
-                    Text("Xem các mức thưởng và tỉ lệ nổ trước khi quay")
-                        .font(.caption)
-                        .foregroundColor(secondaryText)
-                }
-            }
-            .tint(accent)
-            .onChange(of: settings.showRewardList) { _ in
-                saveSettings()
-            }
-
-            Toggle(isOn: $settings.hapticEnabled) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Rung phản hồi khi thao tác")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundColor(primaryText)
-                    Text("Rung nhẹ khi bấm nút, nạp tiền hoặc quay")
-                        .font(.caption)
-                        .foregroundColor(secondaryText)
-                }
-            }
-            .tint(accent)
-            .onChange(of: settings.hapticEnabled) { _ in
-                saveSettings()
-            }
-
-            Divider()
-                .background(borderTone)
-
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Thông tin lưu trữ cục bộ")
-                    .font(.subheadline.bold())
-                    .foregroundColor(primaryText)
-                Text("Tài khoản: \(user.username) • Tổng acc đăng: \(listings.count)")
-                    .font(.caption)
-                    .foregroundColor(secondaryText)
-            }
-
-            VStack(spacing: 10) {
-                Button(action: resetSettingsOnly) {
-                    Text("Khôi phục cài đặt mặc định")
-                        .font(.subheadline.bold())
-                        .foregroundColor(primaryText)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(inputBg)
-                        .cornerRadius(12)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 12)
-                                .stroke(borderTone, lineWidth: 1)
-                        )
-                }
-
-                Button(action: clearAllListings) {
-                    Text("Xóa toàn bộ tin rao bán acc")
-                        .font(.subheadline.bold())
-                        .foregroundColor(.red)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 44)
-                        .background(Color.red.opacity(0.12))
-                        .cornerRadius(12)
-                }
-            }
-
-            if let sNotice = settingsNotice {
-                Text(sNotice)
-                    .font(.footnote.weight(.semibold))
-                    .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
-            }
-        }
-        .padding(14)
-        .background(cardBg)
-        .cornerRadius(18)
-        .overlay(
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(borderTone, lineWidth: 1)
-        )
-    }
-
-    private func resetSettingsOnly() {
-        settings = NotebookSettings()
-        showNotice = true
-        saveSettings()
-        triggerHaptic()
-        settingsNotice = "Đã khôi phục cài đặt mặc định."
-    }
-
-    private func clearAllListings() {
-        listings.removeAll()
-        saveListings()
-        triggerHaptic()
-        settingsNotice = "Đã xóa toàn bộ tin rao bán acc."
-    }
-
-    private func triggerHaptic() {
-        guard settings.hapticEnabled else { return }
-        let generator = UIImpactFeedbackGenerator(style: .light)
-        generator.impactOccurred()
+        .overlay(RoundedRectangle(cornerRadius: 18).stroke(borderTone, lineWidth: 1))
     }
 
     private func formatVND(_ value: Int) -> String {
