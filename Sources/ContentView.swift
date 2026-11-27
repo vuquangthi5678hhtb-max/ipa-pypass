@@ -159,7 +159,7 @@ struct ContentView: View {
 
     private let adminBankName = "MB Bank"
     private let adminAccountNumber = "0987654321"
-    private let adminAccountHolder = "PHAM NGOC HUNG ANH"
+    private let adminAccountHolder = "TAI KHOAN NHAN TIEN"
 
     @State private var profiles: [MemberProfile] = []
     @State private var activeUser: String = ""
@@ -176,6 +176,11 @@ struct ContentView: View {
 
     @State private var currentTab: Int = 0
     @State private var filterGame: GameCategory? = nil
+
+    @State private var purchaseAlertTitle: String = ""
+    @State private var purchaseAlertMessage: String = ""
+    @State private var showPurchaseAlert: Bool = false
+    @State private var lastPurchasedInfo: String?
 
     @State private var spinGame: GameCategory = .lienQuan
     @State private var spinAngle: Double = 0
@@ -274,6 +279,16 @@ struct ContentView: View {
             .navigationTitle(currentProfile == nil ? "Sổ Lab" : "Sổ • \(currentProfile!.username)")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                ToolbarItem(placement: .topBarLeading) {
+                    if currentProfile != nil {
+                        Button("Cài đặt") {
+                            pulseHaptic()
+                            currentTab = 4
+                        }
+                        .font(.subheadline.bold())
+                        .foregroundColor(.orange)
+                    }
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     if currentProfile != nil {
                         Button("Đăng xuất") {
@@ -286,6 +301,16 @@ struct ContentView: View {
                         .foregroundColor(.orange)
                     }
                 }
+            }
+            .alert(purchaseAlertTitle, isPresented: $showPurchaseAlert) {
+                if currentProfile != nil && purchaseAlertTitle == "Không đủ số dư" {
+                    Button("Qua Nạp tiền") {
+                        currentTab = 3
+                    }
+                }
+                Button("Đóng", role: .cancel) {}
+            } message: {
+                Text(purchaseAlertMessage)
             }
             .sheet(isPresented: $showPicker) {
                 LibraryImagePicker { img in
@@ -440,20 +465,21 @@ struct ContentView: View {
                 .cornerRadius(14)
                 .overlay(RoundedRectangle(cornerRadius: 14).stroke(strokeTone, lineWidth: 1))
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    Picker("Trang", selection: $currentTab) {
-                        Text("Màn chính").tag(0)
-                        Text("Vòng quay").tag(1)
-                        Text("Đăng bán").tag(2)
-                        Text("Nạp tiền").tag(3)
-                        Text("Cài đặt").tag(4)
+                VStack(spacing: 8) {
+                    HStack(spacing: 8) {
+                        navButton(title: "Màn chính", index: 0)
+                        navButton(title: "Vòng quay", index: 1)
+                        navButton(title: "Đăng bán", index: 2)
                     }
-                    .pickerStyle(.segmented)
-                    .frame(minWidth: 380)
+                    HStack(spacing: 8) {
+                        navButton(title: "Nạp tiền", index: 3)
+                        navButton(title: "Cài đặt", index: 4)
+                    }
                 }
-                .padding(4)
+                .padding(8)
                 .background(cardSurface)
-                .cornerRadius(12)
+                .cornerRadius(14)
+                .overlay(RoundedRectangle(cornerRadius: 14).stroke(strokeTone, lineWidth: 1))
 
                 switch currentTab {
                 case 0:
@@ -472,6 +498,22 @@ struct ContentView: View {
         }
     }
 
+    private func navButton(title: String, index: Int) -> some View {
+        let active = currentTab == index
+        return Button(action: {
+            pulseHaptic()
+            currentTab = index
+        }) {
+            Text(title)
+                .font(.caption.bold())
+                .foregroundColor(active ? .white : inkPrimary)
+                .frame(maxWidth: .infinity)
+                .frame(height: 36)
+                .background(active ? Color.orange : fieldSurface)
+                .cornerRadius(10)
+        }
+    }
+
     private func statPill(tag: String, count: Int, color: Color) -> some View {
         VStack(spacing: 1) {
             Text("\(count)")
@@ -487,6 +529,30 @@ struct ContentView: View {
         .cornerRadius(8)
     }
 
+    private func handleBuyItem(_ item: MarketItem) {
+        pulseHaptic()
+        guard let idx = activeIndex else { return }
+
+        if profiles[idx].balance < item.price {
+            let needMore = item.price - profiles[idx].balance
+            purchaseAlertTitle = "Không đủ số dư"
+            purchaseAlertMessage = "Mục \"\(item.title)\" giá \(formatVND(item.price)). Số dư hiện tại còn \(formatVND(profiles[idx].balance)), cần nạp thêm \(formatVND(needMore))."
+            showPurchaseAlert = true
+            return
+        }
+
+        profiles[idx].balance -= item.price
+        persistProfiles()
+        items.removeAll { $0.id == item.id }
+        persistItems()
+
+        let summary = "Đã mua: \(item.title) | Game: \(item.game.rawValue) | Đăng nhập: \(item.loginType.rawValue) | Giá: \(formatVND(item.price)) | Người đăng: \(item.owner)"
+        lastPurchasedInfo = summary
+        purchaseAlertTitle = "Mua thành công"
+        purchaseAlertMessage = summary
+        showPurchaseAlert = true
+    }
+
     private var catalogSection: some View {
         let visible: [MarketItem]
         if let fg = filterGame {
@@ -496,6 +562,29 @@ struct ContentView: View {
         }
 
         return VStack(alignment: .leading, spacing: 12) {
+            if let bought = lastPurchasedInfo {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text("Thông tin giao dịch vừa mua")
+                            .font(.caption.bold())
+                            .foregroundColor(Color(red: 0.16, green: 0.78, blue: 0.44))
+                        Spacer()
+                        Button("Ẩn") {
+                            lastPurchasedInfo = nil
+                        }
+                        .font(.caption2.bold())
+                        .foregroundColor(inkSecondary)
+                    }
+                    Text(bought)
+                        .font(.caption)
+                        .foregroundColor(inkPrimary)
+                }
+                .padding(12)
+                .background(Color(red: 0.16, green: 0.78, blue: 0.44).opacity(0.12))
+                .cornerRadius(12)
+                .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color(red: 0.16, green: 0.78, blue: 0.44).opacity(0.45), lineWidth: 1))
+            }
+
             HStack {
                 Text("Danh sách acc (\(visible.count))")
                     .font(.headline)
@@ -605,14 +694,7 @@ struct ContentView: View {
                                 .cornerRadius(12)
                             }
                             Button("Mua thử") {
-                                pulseHaptic()
-                                guard let idx = activeIndex else { return }
-                                if profiles[idx].balance >= item.price {
-                                    profiles[idx].balance -= item.price
-                                    persistProfiles()
-                                    items.removeAll { $0.id == item.id }
-                                    persistItems()
-                                }
+                                handleBuyItem(item)
                             }
                             .font(.caption.bold())
                             .foregroundColor(.white)
