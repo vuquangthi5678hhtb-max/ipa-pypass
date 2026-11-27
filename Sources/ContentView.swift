@@ -1,5 +1,4 @@
 import SwiftUI
-import PhotosUI
 import UIKit
 
 enum LoginMethod: String, CaseIterable, Identifiable, Codable {
@@ -31,6 +30,43 @@ struct AccountListing: Identifiable, Codable {
     let createdAt: Date
 }
 
+struct PhotoLibraryPicker: UIViewControllerRepresentable {
+    let onPickImage: (UIImage?) -> Void
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(onPickImage: onPickImage)
+    }
+
+    func makeUIViewController(context: Context) -> UIImagePickerController {
+        let picker = UIImagePickerController()
+        picker.sourceType = .photoLibrary
+        picker.allowsEditing = false
+        picker.delegate = context.coordinator
+        return picker
+    }
+
+    func updateUIViewController(_ uiViewController: UIImagePickerController, context: Context) {}
+
+    final class Coordinator: NSObject, UINavigationControllerDelegate, UIImagePickerControllerDelegate {
+        let onPickImage: (UIImage?) -> Void
+
+        init(onPickImage: @escaping (UIImage?) -> Void) {
+            self.onPickImage = onPickImage
+        }
+
+        func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey : Any]) {
+            let img = (info[.originalImage] as? UIImage)
+            onPickImage(img)
+            picker.dismiss(animated: true)
+        }
+
+        func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+            onPickImage(nil)
+            picker.dismiss(animated: true)
+        }
+    }
+}
+
 struct ContentView: View {
     private let accountsKey = "notebook_shop_accounts_v2"
     private let currentUserKey = "notebook_shop_current_user_v2"
@@ -55,7 +91,8 @@ struct ContentView: View {
     @State private var newTitle = ""
     @State private var newPriceText = ""
     @State private var newLoginMethod: LoginMethod = .facebook
-    @State private var selectedListingPhoto: PhotosPickerItem?
+    @State private var showPhotoPicker = false
+    @State private var pickedPreviewImage: UIImage?
     @State private var newImageData: Data?
     @State private var postMessage: String?
 
@@ -119,6 +156,16 @@ struct ContentView: View {
                         }
                         .font(.subheadline.weight(.semibold))
                         .foregroundColor(accent)
+                    }
+                }
+            }
+            .sheet(isPresented: $showPhotoPicker) {
+                PhotoLibraryPicker { img in
+                    if let img = img {
+                        let compressed = compressUIImage(img)
+                        pickedPreviewImage = compressed.0
+                        newImageData = compressed.1
+                        postMessage = "Đã chọn ảnh acc thành công."
                     }
                 }
             }
@@ -466,10 +513,10 @@ struct ContentView: View {
                         if let data = item.imageData, let uiImg = UIImage(data: data) {
                             Image(uiImage: uiImg)
                                 .resizable()
-                                .scaledToFill()
+                                .scaledToFit()
                                 .frame(maxWidth: .infinity)
-                                .frame(height: 195)
-                                .clipped()
+                                .frame(maxHeight: 230)
+                                .background(inputBg)
                                 .cornerRadius(12)
                         } else {
                             RoundedRectangle(cornerRadius: 12)
@@ -601,10 +648,13 @@ struct ContentView: View {
                 .pickerStyle(.segmented)
             }
 
-            PhotosPicker(selection: $selectedListingPhoto, matching: .images) {
+            Button(action: {
+                haptic()
+                showPhotoPicker = true
+            }) {
                 HStack {
                     Image(systemName: "photo.badge.plus")
-                    Text(newImageData == nil ? "Chọn ảnh acc từ thư viện" : "Đổi ảnh acc khác").fontWeight(.semibold)
+                    Text(pickedPreviewImage == nil ? "Chọn ảnh acc từ thư viện" : "Đổi ảnh acc khác").fontWeight(.semibold)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(height: 46)
@@ -613,41 +663,28 @@ struct ContentView: View {
                 .cornerRadius(12)
                 .overlay(RoundedRectangle(cornerRadius: 12).stroke(borderTone, lineWidth: 1))
             }
-            .onChange(of: selectedListingPhoto) { newItem in
-                if newItem != nil {
-                    loadPickedImage()
-                }
-            }
 
-            if selectedListingPhoto != nil && newImageData == nil {
-                Button(action: loadPickedImage) {
-                    Text("Nạp lại ảnh đã chọn")
-                        .font(.footnote.bold())
-                        .foregroundColor(accent)
-                }
-            }
-
-            if let data = newImageData, let previewImg = UIImage(data: data) {
+            if let previewImg = pickedPreviewImage {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Xem trước ảnh acc đã chọn")
+                    Text("Ảnh acc đã chọn")
                         .font(.caption.bold())
                         .foregroundColor(secondaryText)
 
                     Image(uiImage: previewImg)
                         .resizable()
-                        .scaledToFill()
+                        .scaledToFit()
                         .frame(maxWidth: .infinity)
-                        .frame(height: 180)
-                        .clipped()
+                        .frame(maxHeight: 200)
+                        .background(inputBg)
                         .cornerRadius(12)
 
                     Button(role: .destructive, action: {
                         haptic()
+                        pickedPreviewImage = nil
                         newImageData = nil
-                        selectedListingPhoto = nil
-                        postMessage = "Đã bỏ ảnh đã chọn."
+                        postMessage = "Đã xóa ảnh đã chọn."
                     }) {
-                        Text("Xóa ảnh này")
+                        Text("Bỏ ảnh này")
                             .font(.caption.bold())
                     }
                 }
@@ -673,45 +710,19 @@ struct ContentView: View {
         .overlay(RoundedRectangle(cornerRadius: 18).stroke(borderTone, lineWidth: 1))
     }
 
-    private func compressImageData(_ rawData: Data) -> Data? {
-        guard let img = UIImage(data: rawData) else { return rawData }
-        let maxSide: CGFloat = 1200
+    private func compressUIImage(_ img: UIImage) -> (UIImage, Data?) {
+        let maxSide: CGFloat = 800
         let size = img.size
         let ratio = min(maxSide / max(size.width, 1), maxSide / max(size.height, 1), 1.0)
-        let targetSize = CGSize(width: size.width * ratio, height: size.height * ratio)
+        let targetSize = CGSize(width: max(1, size.width * ratio), height: max(1, size.height * ratio))
 
         let renderer = UIGraphicsImageRenderer(size: targetSize)
         let resized = renderer.image { _ in
             img.draw(in: CGRect(origin: .zero, size: targetSize))
         }
-        return resized.jpegData(compressionQuality: 0.75) ?? rawData
-    }
-
-    private func loadPickedImage() {
-        haptic()
-        guard let item = selectedListingPhoto else {
-            postMessage = "Hãy bấm 'Chọn ảnh acc từ thư viện' trước."
-            return
-        }
-        Task {
-            do {
-                if let data = try await item.loadTransferable(type: Data.self) {
-                    let prepared = compressImageData(data)
-                    DispatchQueue.main.async {
-                        self.newImageData = prepared
-                        self.postMessage = "Đã hiện ảnh acc, kiểm tra khung xem trước rồi bấm Đăng."
-                    }
-                } else {
-                    DispatchQueue.main.async {
-                        self.postMessage = "Không đọc được ảnh này, thử chọn ảnh khác."
-                    }
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    self.postMessage = "Lỗi tải ảnh: \(error.localizedDescription)"
-                }
-            }
-        }
+        let jpeg = resized.jpegData(compressionQuality: 0.65)
+        let finalImg = jpeg.flatMap { UIImage(data: $0) } ?? resized
+        return (finalImg, jpeg)
     }
 
     private func submitListing() {
@@ -742,8 +753,8 @@ struct ContentView: View {
         filterPlatform = nil
         newTitle = ""
         newPriceText = ""
+        pickedPreviewImage = nil
         newImageData = nil
-        selectedListingPhoto = nil
         postMessage = "Đã đăng acc lên màn hình chính."
         selectedSection = 0
     }
